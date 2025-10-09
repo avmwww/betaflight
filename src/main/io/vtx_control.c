@@ -47,6 +47,8 @@
 #include "pg/pg.h"
 #include "pg/pg_ids.h"
 
+#undef ARMING_FLAG
+#define ARMING_FLAG(mask) (0)
 
 PG_REGISTER_WITH_RESET_TEMPLATE(vtxConfig_t, vtxConfig, PG_VTX_CONFIG, 1);
 

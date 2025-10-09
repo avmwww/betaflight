@@ -35,7 +35,7 @@
 #define VTX_SMARTAUDIO_MIN_CHANNEL 1
 
 
-#define VTX_SMARTAUDIO_MIN_FREQUENCY_MHZ 5000        //min freq in MHz
+#define VTX_SMARTAUDIO_MIN_FREQUENCY_MHZ 500        //min freq in MHz
 #define VTX_SMARTAUDIO_MAX_FREQUENCY_MHZ 5999        //max freq in MHz
 
 // opmode flags, GET side
