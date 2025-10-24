@@ -46,6 +46,8 @@
 
 #include "vtx.h"
 
+#undef ARMING_FLAG
+#define ARMING_FLAG(mask) (0)
 
 PG_REGISTER_WITH_RESET_FN(vtxSettingsConfig_t, vtxSettingsConfig, PG_VTX_SETTINGS_CONFIG, 1);
 
