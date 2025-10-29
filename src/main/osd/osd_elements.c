@@ -1534,7 +1534,13 @@ static void osdElementRemainingTimeEstimate(osdElementParms_t *element)
 
 static void osdElementRssi(osdElementParms_t *element)
 {
-    uint16_t osdRssi = getRssi() * 100 / 1024; // change range
+    uint8_t item = element->item;
+    uint16_t osdRssi;
+
+    if (item == OSD_RSSI_VALUE)
+        osdRssi = getRssi() * 100 / 1024; // change range
+    else
+        osdRssi = getRssi() * 100 / 1024; // change range
     if (osdRssi >= 100) {
         osdRssi = 99;
     }
@@ -1772,6 +1778,7 @@ static void osdElementSys(osdElementParms_t *element)
 static const uint8_t osdElementDisplayOrder[] = {
     OSD_MAIN_BATT_VOLTAGE,
     OSD_RSSI_VALUE,
+    OSD_RSSI_X_VALUE,
     OSD_CROSSHAIRS,
     OSD_HORIZON_SIDEBARS,
     OSD_UP_DOWN_REFERENCE,
@@ -1871,6 +1878,7 @@ static const uint8_t osdElementDisplayOrder[] = {
 const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
     [OSD_CAMERA_FRAME]            = NULL,  // only has background. Added first so it's the lowest "layer" and doesn't cover other elements
     [OSD_RSSI_VALUE]              = osdElementRssi,
+    [OSD_RSSI_X_VALUE]            = osdElementRssi,
     [OSD_MAIN_BATT_VOLTAGE]       = osdElementMainBatteryVoltage,
     [OSD_CROSSHAIRS]              = osdElementCrosshairs,  // only has background, but needs to be over other elements (like artificial horizon)
 #ifdef USE_ACC
