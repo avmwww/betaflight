@@ -148,6 +148,7 @@ typedef struct rxRuntimeState_s {
     uint16_t            *channelData;
     void                *frameData;
     timeUs_t            lastRcFrameTimeUs;
+    uint8_t             portID;
 } rxRuntimeState_t;
 
 typedef enum {
@@ -228,3 +229,9 @@ void resumeRxSignal(void);
 timeDelta_t rxGetFrameDelta(timeDelta_t *frameAgeUs);
 
 timeUs_t rxFrameTimeUs(void);
+
+/* multi rssi */
+void set_rssi_val_direct(uint16_t newRssi, rssiSource_e source, int id);
+void set_rssi_val(uint16_t rssiValue, rssiSource_e source, int id);
+uint16_t get_rssi_val(int id);
+uint8_t get_rssi_val_percent(int id);

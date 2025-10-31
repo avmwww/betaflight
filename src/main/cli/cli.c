@@ -1301,7 +1301,7 @@ static void cliSerial(const char *cmdName, char *cmdline)
 
     ptr = nextArg(ptr);
     if (ptr) {
-        val = strtoul(ptr, NULL, 10);
+        val = strtoul(ptr, NULL, 0);
         portConfig.functionMask = val;
         validArgumentCount++;
     }

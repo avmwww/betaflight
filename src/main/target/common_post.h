@@ -651,3 +651,7 @@ extern uint8_t __config_end;
 #define USE_PIN_PULL_UP_DOWN
 #endif
 #endif // USE_PINIO
+
+#ifndef RSSI_NUM
+#define RSSI_NUM 1
+#endif

@@ -75,6 +75,9 @@
 
 const char rcChannelLetters[] = "AERT12345678abcdefgh";
 
+static uint16_t rssi_val[RSSI_NUM] = {0};                  // range: [0;1023]
+static uint16_t rssi_raw_val[RSSI_NUM] = {0};              // range: [0;1023]
+
 static uint16_t rssi = 0;                  // range: [0;1023]
 static uint16_t rssiRaw = 0;               // range: [0;1023]
 static timeUs_t lastRssiSmoothingUs = 0;
@@ -871,6 +874,17 @@ static void updateRSSIADC(timeUs_t currentTimeUs)
 #endif
 }
 
+static void update_rssi_val(float k2)
+{
+    int i;
+    for (i = 0; i < RSSI_NUM; i++) {
+        if (rssi_val[i] != rssi_raw_val[i]) {
+            pt1FilterUpdateCutoff(&rssiFilter, k2);
+            rssi_val[i] = pt1FilterApply(&rssiFilter, rssi_raw_val[i]);
+        }
+    }
+}
+
 void updateRSSI(timeUs_t currentTimeUs)
 {
     switch (rssiSource) {
@@ -901,6 +915,8 @@ void updateRSSI(timeUs_t currentTimeUs)
                 pt1FilterUpdateCutoff(&rssiFilter, k2);
                 rssi = pt1FilterApply(&rssiFilter, rssiRaw);
             }
+
+            update_rssi_val(k2);
 
 #ifdef USE_RX_RSSI_DBM
             if (rssiDbm != rssiDbmRaw) {
@@ -1046,3 +1062,46 @@ timeUs_t rxFrameTimeUs(void)
 {
     return rxRuntimeState.lastRcFrameTimeUs;
 }
+
+/* multi rssi */
+void set_rssi_val_direct(uint16_t newRssi, rssiSource_e source, int id)
+{
+    if (source != rssiSource) {
+        return;
+    }
+
+    rssi_val[id] = newRssi;
+    rssi_raw_val[id] = newRssi;
+}
+
+void set_rssi_val(uint16_t rssiValue, rssiSource_e source, int id)
+{
+    if (source != rssiSource) {
+        return;
+    }
+
+    // Filter RSSI value
+    if (source == RSSI_SOURCE_FRAME_ERRORS) {
+        rssi_raw_val[id] = pt1FilterApply(&frameErrFilter, rssiValue);
+    } else {
+        rssi_raw_val[id] = rssiValue;
+    }
+}
+
+uint16_t get_rssi_val(int id)
+{
+    uint16_t rssiValue = rssi_val[id];
+
+    // RSSI_Invert option
+    if (rxConfig()->rssi_invert) {
+        rssiValue = RSSI_MAX_VALUE - rssiValue;
+    }
+
+    return rxConfig()->rssi_scale / 100.0f * rssiValue + rxConfig()->rssi_offset * RSSI_OFFSET_SCALING;
+}
+
+uint8_t get_rssi_val_percent(int id)
+{
+    return scaleRange(get_rssi_val(id), 0, RSSI_MAX_VALUE, 0, 100);
+}
+

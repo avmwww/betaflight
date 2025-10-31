@@ -1535,18 +1535,27 @@ static void osdElementRemainingTimeEstimate(osdElementParms_t *element)
 static void osdElementRssi(osdElementParms_t *element)
 {
     uint8_t item = element->item;
-    uint16_t osdRssi;
+    uint16_t osdRssi = 0;
 
     if (item == OSD_RSSI_VALUE)
-        osdRssi = getRssi() * 100 / 1024; // change range
-    else
-        osdRssi = getRssi() * 100 / 1024; // change range
+        osdRssi = getRssi();
+    else if (item >= OSD_RSSI_X_VALUE && item <= OSD_RSSI_X_VALUE_LAST)
+        osdRssi = get_rssi_val(item - OSD_RSSI_X_VALUE);
+
+    osdRssi = osdRssi * 100 / 1024; // change range
+
     if (osdRssi >= 100) {
         osdRssi = 99;
     }
 
-    if (getRssiPercent() < osdConfig()->rssi_alarm) {
-        element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
+    if (item == OSD_RSSI_VALUE) {
+        if (getRssiPercent() < osdConfig()->rssi_alarm) {
+            element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
+        }
+    } else if (item >= OSD_RSSI_X_VALUE && item <= OSD_RSSI_X_VALUE_LAST) {
+        if (get_rssi_val_percent(item - OSD_RSSI_X_VALUE) < osdConfig()->rssi_alarm) {
+            element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
+        }
     }
 
     tfp_sprintf(element->buff, "%c%2d", SYM_RSSI, osdRssi);
@@ -1779,6 +1788,9 @@ static const uint8_t osdElementDisplayOrder[] = {
     OSD_MAIN_BATT_VOLTAGE,
     OSD_RSSI_VALUE,
     OSD_RSSI_X_VALUE,
+    OSD_RSSI_X_VALUE + 1,
+    OSD_RSSI_X_VALUE + 2,
+    OSD_RSSI_X_VALUE + 3,
     OSD_CROSSHAIRS,
     OSD_HORIZON_SIDEBARS,
     OSD_UP_DOWN_REFERENCE,
@@ -2375,6 +2387,14 @@ void osdUpdateAlarms(void)
     // This is overdone?
 
     int32_t alt = osdGetMetersToSelectedUnit(getEstimatedAltitudeCm()) / 100;
+
+    for (int i = 0; i < RSSI_NUM; i++) {
+        if (get_rssi_val_percent(i) < osdConfig()->rssi_alarm) {
+            SET_BLINK(OSD_RSSI_X_VALUE + i);
+        } else {
+            CLR_BLINK(OSD_RSSI_X_VALUE + i);
+        }
+    }
 
     if (getRssiPercent() < osdConfig()->rssi_alarm) {
         SET_BLINK(OSD_RSSI_VALUE);

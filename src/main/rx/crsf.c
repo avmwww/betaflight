@@ -223,14 +223,40 @@ typedef struct crsfPayloadLinkstatisticsTx_s {
 
 static timeUs_t lastLinkStatisticsFrameUs;
 
-static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, timeUs_t currentTimeUs)
+static int port_id_to_rssi_id(int port_id)
+{
+    int pid[] = {
+        SERIAL_PORT_USART1,
+        /*SERIAL_PORT_USART2,*/
+        SERIAL_PORT_USART3,
+        SERIAL_PORT_UART4,
+        SERIAL_PORT_UART5,
+        SERIAL_PORT_USART6,
+    };
+    int rssi_id = -1;
+
+    for (unsigned int i = 0; i < sizeof(pid) / sizeof(pid[0]); i++) {
+        if (pid[i] == port_id) {
+            rssi_id = i;
+            break;
+        }
+    }
+
+    return rssi_id;
+}
+
+static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, timeUs_t currentTimeUs, int portID)
 {
     const crsfLinkStatistics_t stats = *statsPtr;
     lastLinkStatisticsFrameUs = currentTimeUs;
     int16_t rssiDbm = -1 * (stats.active_antenna ? stats.uplink_RSSI_2 : stats.uplink_RSSI_1);
     if (rssiSource == RSSI_SOURCE_RX_PROTOCOL_CRSF) {
         const uint16_t rssiPercentScaled = scaleRange(rssiDbm, CRSF_RSSI_MIN, CRSF_RSSI_MAX, 0, RSSI_MAX_VALUE);
-        setRssi(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF);
+        int rssi_id = port_id_to_rssi_id(portID);
+        if (rssi_id < 0)
+            setRssi(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF);
+        else
+            set_rssi_val(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF, rssi_id);
     }
 #ifdef USE_RX_RSSI_DBM
     setRssiDbm(rssiDbm, RSSI_SOURCE_RX_PROTOCOL_CRSF);
@@ -429,7 +455,7 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
                         (crsfFrame.frame.deviceAddress == CRSF_ADDRESS_FLIGHT_CONTROLLER) &&
                         (crsfFrame.frame.frameLength == CRSF_FRAME_ORIGIN_DEST_SIZE + CRSF_FRAME_LINK_STATISTICS_PAYLOAD_SIZE)) {
                         const crsfLinkStatistics_t* statsFrame = (const crsfLinkStatistics_t*)&crsfFrame.frame.payload;
-                        handleCrsfLinkStatisticsFrame(statsFrame, currentTimeUs);
+                        handleCrsfLinkStatisticsFrame(statsFrame, currentTimeUs, rxRuntimeState->portID);
                     }
                     break;
                 }
@@ -636,6 +662,7 @@ bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState)
     if (!portConfig) {
         return false;
     }
+    rxRuntimeState->portID = portConfig->identifier;
 
     uint32_t crsfBaudrate = CRSF_BAUDRATE;
 
