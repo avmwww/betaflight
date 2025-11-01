@@ -33,12 +33,13 @@ static bool doRxBind(bool doBind)
 #if !defined(USE_SERIALRX_SRXL2) && !defined(USE_RX_FRSKY_SPI) && !defined(USE_RX_SFHSS_SPI) && !defined(USE_RX_FLYSKY) && !defined(USE_RX_SPEKTRUM) && !defined(USE_RX_EXPRESSLRS) && !defined(USE_SERIALRX_CRSF)
     UNUSED(doBind);
 #endif
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
 
-    switch (rxRuntimeState.rxProvider) {
+    switch (rxRuntimeState->rxProvider) {
     default:
         return false;
     case RX_PROVIDER_SERIAL:
-        switch (rxRuntimeState.serialrxProvider) {
+        switch (rxRuntimeState->serialrxProvider) {
         default:
             return false;
 #if defined(USE_SERIALRX_CRSF)

@@ -173,7 +173,9 @@ typedef enum {
 
 extern linkQualitySource_e linkQualitySource;
 
-extern rxRuntimeState_t rxRuntimeState; //!!TODO remove this extern, only needed once for channelCount
+//extern rxRuntimeState_t rxRuntimeState; //!!TODO remove this extern, only needed once for channelCount
+
+rxRuntimeState_t *getRxRuntimeState(int id);
 
 void rxInit(void);
 void rxProcessPending(bool state);

@@ -1316,8 +1316,11 @@ case MSP_NAME:
 #endif
 
     case MSP_RC:
-        for (int i = 0; i < rxRuntimeState.channelCount; i++) {
-            sbufWriteU16(dst, rcData[i]);
+        {
+            rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+            for (int i = 0; i < rxRuntimeState->channelCount; i++) {
+                sbufWriteU16(dst, rcData[i]);
+            }
         }
         break;
 
@@ -1652,9 +1655,12 @@ case MSP_NAME:
         break;
 
     case MSP_RXFAIL_CONFIG:
-        for (int i = 0; i < rxRuntimeState.channelCount; i++) {
+        {
+        rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+        for (int i = 0; i < rxRuntimeState->channelCount; i++) {
             sbufWriteU8(dst, rxFailsafeChannelConfigs(i)->mode);
             sbufWriteU16(dst, RXFAIL_STEP_TO_CHANNEL_VALUE(rxFailsafeChannelConfigs(i)->step));
+        }
         }
         break;
 

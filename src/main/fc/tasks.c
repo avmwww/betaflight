@@ -556,10 +556,11 @@ void tasksInit(void)
 #ifdef USE_TELEMETRY
     if (featureIsEnabled(FEATURE_TELEMETRY)) {
         setTaskEnabled(TASK_TELEMETRY, true);
-        if (rxRuntimeState.serialrxProvider == SERIALRX_JETIEXBUS) {
+        rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+        if (rxRuntimeState->serialrxProvider == SERIALRX_JETIEXBUS) {
             // Reschedule telemetry to 500hz for Jeti Exbus
             rescheduleTask(TASK_TELEMETRY, TASK_PERIOD_HZ(500));
-        } else if (rxRuntimeState.serialrxProvider == SERIALRX_CRSF) {
+        } else if (rxRuntimeState->serialrxProvider == SERIALRX_CRSF) {
             // Reschedule telemetry to 500hz, 2ms for CRSF
             rescheduleTask(TASK_TELEMETRY, TASK_PERIOD_HZ(500));
         }
@@ -618,7 +619,8 @@ void tasksInit(void)
 #endif
 
 #ifdef USE_CRSF_V3
-    const bool useCRSF = rxRuntimeState.serialrxProvider == SERIALRX_CRSF;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+    const bool useCRSF = rxRuntimeState->serialrxProvider == SERIALRX_CRSF;
     setTaskEnabled(TASK_SPEED_NEGOTIATION, useCRSF);
 #endif
 
