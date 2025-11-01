@@ -74,6 +74,7 @@ typedef struct crsfRuntimeState_s {
 #if defined(USE_CRSF_V3)
     uint8_t         crsfFrameErrorCnt;
 #endif
+    float           channelScale;
 } crsfRuntimeState_t;
 
 STATIC_UNIT_TESTED crsfRuntimeState_t crsfRuntimeStates[RX_SERIAL_COUNT];
@@ -82,7 +83,6 @@ STATIC_UNIT_TESTED crsfRuntimeState_t crsfRuntimeStates[RX_SERIAL_COUNT];
 static serialPort_t *serialPort;
 static uint8_t telemetryBuf[CRSF_FRAME_SIZE_MAX];
 static uint8_t telemetryBufLen = 0;
-static float channelScale = CRSF_RC_CHANNEL_SCALE_LEGACY;
 
 #ifdef USE_RX_LINK_UPLINK_POWER
 #define CRSF_UPLINK_POWER_LEVEL_MW_ITEMS_COUNT 9
@@ -526,7 +526,7 @@ STATIC_UNIT_TESTED uint8_t crsfFrameStatus(rxRuntimeState_t *rxRuntimeState)
         if (crsfRuntimeState->crsfChannelDataFrame.frame.type == CRSF_FRAMETYPE_RC_CHANNELS_PACKED) {
             // use ordinary RC frame structure (0x16)
             const crsfPayloadRcChannelsPacked_t* const rcChannels = (crsfPayloadRcChannelsPacked_t*)&crsfRuntimeState->crsfChannelDataFrame.frame.payload;
-            channelScale = CRSF_RC_CHANNEL_SCALE_LEGACY;
+            crsfRuntimeState->channelScale = CRSF_RC_CHANNEL_SCALE_LEGACY;
             crsfRuntimeState->crsfChannelData[0] = rcChannels->chan0;
             crsfRuntimeState->crsfChannelData[1] = rcChannels->chan1;
             crsfRuntimeState->crsfChannelData[2] = rcChannels->chan2;
@@ -564,23 +564,23 @@ STATIC_UNIT_TESTED uint8_t crsfFrameStatus(rxRuntimeState_t *rxRuntimeState)
             case CRSF_SUBSET_RC_RES_CONF_10B:
                 channelBits = CRSF_SUBSET_RC_RES_BITS_10B;
                 channelMask = CRSF_SUBSET_RC_RES_MASK_10B;
-                channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_10B;
+                crsfRuntimeState->channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_10B;
                 break;
             default:
             case CRSF_SUBSET_RC_RES_CONF_11B:
                 channelBits = CRSF_SUBSET_RC_RES_BITS_11B;
                 channelMask = CRSF_SUBSET_RC_RES_MASK_11B;
-                channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_11B;
+                crsfRuntimeState->channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_11B;
                 break;
             case CRSF_SUBSET_RC_RES_CONF_12B:
                 channelBits = CRSF_SUBSET_RC_RES_BITS_12B;
                 channelMask = CRSF_SUBSET_RC_RES_MASK_12B;
-                channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_12B;
+                crsfRuntimeState->channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_12B;
                 break;
             case CRSF_SUBSET_RC_RES_CONF_13B:
                 channelBits = CRSF_SUBSET_RC_RES_BITS_13B;
                 channelMask = CRSF_SUBSET_RC_RES_MASK_13B;
-                channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_13B;
+                crsfRuntimeState->channelScale = CRSF_SUBSET_RC_CHANNEL_SCALE_13B;
                 break;
             }
 
@@ -612,7 +612,7 @@ STATIC_UNIT_TESTED uint8_t crsfFrameStatus(rxRuntimeState_t *rxRuntimeState)
 STATIC_UNIT_TESTED float crsfReadRawRC(const rxRuntimeState_t *rxRuntimeState, uint8_t chan)
 {
     crsfRuntimeState_t *crsfRuntimeState = (crsfRuntimeState_t *)rxRuntimeState->priv;
-    if (channelScale == CRSF_RC_CHANNEL_SCALE_LEGACY) {
+    if (crsfRuntimeState->channelScale == CRSF_RC_CHANNEL_SCALE_LEGACY) {
         /* conversion from RC value to PWM
         * for 0x16 RC frame
         *       RC     PWM
@@ -622,12 +622,12 @@ STATIC_UNIT_TESTED float crsfReadRawRC(const rxRuntimeState_t *rxRuntimeState, u
         * scale factor = (2012-988) / (1811-172) = 0.62477120195241
         * offset = 988 - 172 * 0.62477120195241 = 880.53935326418548
         */
-        return (channelScale * (float)crsfRuntimeState->crsfChannelData[chan]) + 881;
+        return (crsfRuntimeState->channelScale * (float)crsfRuntimeState->crsfChannelData[chan]) + 881;
     } else {
         /* conversion from RC value to PWM
         * for 0x17 Subset RC frame
         */
-        return (channelScale * (float)crsfRuntimeState->crsfChannelData[chan]) + 988;
+        return (crsfRuntimeState->channelScale * (float)crsfRuntimeState->crsfChannelData[chan]) + 988;
     }
 }
 
@@ -670,6 +670,7 @@ bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, in
     for (int ii = 0; ii < CRSF_MAX_CHANNEL; ++ii) {
         crsfRuntimeState->crsfChannelData[ii] = (16 * rxConfig->midrc) / 10 - 1408;
     }
+    crsfRuntimeState->channelScale = CRSF_RC_CHANNEL_SCALE_LEGACY;
 
     const serialPortConfig_t *portConfig = findSerialPortConfig(FUNCTION_RX_SERIAL);
     if (!portConfig) {
