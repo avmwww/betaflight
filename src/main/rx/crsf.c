@@ -70,6 +70,10 @@ typedef struct crsfRuntimeState_s {
     crsfFrame_t     crsfChannelDataFrame;
     uint32_t        crsfChannelData[CRSF_MAX_CHANNEL];
     timeUs_t        crsfFrameStartAtUs;
+    uint8_t         crsfFramePosition;
+#if defined(USE_CRSF_V3)
+    uint8_t         crsfFrameErrorCnt;
+#endif
 } crsfRuntimeState_t;
 
 STATIC_UNIT_TESTED crsfRuntimeState_t crsfRuntimeStates[RX_SERIAL_COUNT];
@@ -382,10 +386,6 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
     rxRuntimeState_t *const rxRuntimeState = (rxRuntimeState_t *const)data;
     crsfRuntimeState_t *const crsfRuntimeState = (crsfRuntimeState_t *const)rxRuntimeState->priv;
 
-    static uint8_t crsfFramePosition = 0;
-#if defined(USE_CRSF_V3)
-    static uint8_t crsfFrameErrorCnt = 0;
-#endif
     const timeUs_t currentTimeUs = microsISR();
 
 #ifdef DEBUG_CRSF_PACKETS
@@ -396,30 +396,30 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
         // We've received a character after max time needed to complete a frame,
         // so this must be the start of a new frame.
 #if defined(USE_CRSF_V3)
-        if (crsfFramePosition > 0) {
+        if (crsfRuntimeState->crsfFramePosition > 0) {
             // count an error if full valid frame not received within the allowed time.
-            crsfFrameErrorCnt++;
+            crsfRuntimeState->crsfFrameErrorCnt++;
         }
 #endif
-        crsfFramePosition = 0;
+        crsfRuntimeState->crsfFramePosition = 0;
     }
 
-    if (crsfFramePosition == 0) {
+    if (crsfRuntimeState->crsfFramePosition == 0) {
         crsfRuntimeState->crsfFrameStartAtUs = currentTimeUs;
     }
     // assume frame is 5 bytes long until we have received the frame length
     // full frame length includes the length of the address and framelength fields
     // sometimes we can receive some garbage data. So, we need to check max size for preventing buffer overrun.
-    const int fullFrameLength = crsfFramePosition < 3 ? 5 : MIN(crsfRuntimeState->crsfFrame.frame.frameLength + CRSF_FRAME_LENGTH_ADDRESS + CRSF_FRAME_LENGTH_FRAMELENGTH, CRSF_FRAME_SIZE_MAX);
+    const int fullFrameLength = crsfRuntimeState->crsfFramePosition < 3 ? 5 : MIN(crsfRuntimeState->crsfFrame.frame.frameLength + CRSF_FRAME_LENGTH_ADDRESS + CRSF_FRAME_LENGTH_FRAMELENGTH, CRSF_FRAME_SIZE_MAX);
 
-    if (crsfFramePosition < fullFrameLength) {
-        crsfRuntimeState->crsfFrame.bytes[crsfFramePosition++] = (uint8_t)c;
-        if (crsfFramePosition >= fullFrameLength) {
-            crsfFramePosition = 0;
+    if (crsfRuntimeState->crsfFramePosition < fullFrameLength) {
+        crsfRuntimeState->crsfFrame.bytes[crsfRuntimeState->crsfFramePosition++] = (uint8_t)c;
+        if (crsfRuntimeState->crsfFramePosition >= fullFrameLength) {
+            crsfRuntimeState->crsfFramePosition = 0;
             const uint8_t crc = crsfFrameCRC(&crsfRuntimeState->crsfFrame);
             if (crc == crsfRuntimeState->crsfFrame.bytes[fullFrameLength - 1]) {
 #if defined(USE_CRSF_V3)
-                crsfFrameErrorCnt = 0;
+                crsfRuntimeState->crsfFrameErrorCnt = 0;
 #endif
                 switch (crsfRuntimeState->crsfFrame.frame.type) {
                 case CRSF_FRAMETYPE_RC_CHANNELS_PACKED:
@@ -494,19 +494,19 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
                 }
             } else {
 #if defined(USE_CRSF_V3)
-                if (crsfFrameErrorCnt < CRSF_FRAME_ERROR_COUNT_THRESHOLD)
-                    crsfFrameErrorCnt++;
+                if (crsfRuntimeState->crsfFrameErrorCnt < CRSF_FRAME_ERROR_COUNT_THRESHOLD)
+                    crsfRuntimeState->crsfFrameErrorCnt++;
 #endif
             }
         }
 #if defined(USE_CRSF_V3)
         if (crsfBaudNegotiationInProgress() || isEepromWriteInProgress()) {
             // don't count errors when negotiation or eeprom write is in progress
-            crsfFrameErrorCnt = 0;
-        } else if (crsfFrameErrorCnt >= CRSF_FRAME_ERROR_COUNT_THRESHOLD) {
+            crsfRuntimeState->crsfFrameErrorCnt = 0;
+        } else if (crsfRuntimeState->crsfFrameErrorCnt >= CRSF_FRAME_ERROR_COUNT_THRESHOLD) {
             // fall back to default speed if speed mismatch detected
             setCrsfDefaultSpeed();
-            crsfFrameErrorCnt = 0;
+            crsfRuntimeState->crsfFrameErrorCnt = 0;
         }
 #endif
     }
@@ -657,6 +657,7 @@ bool crsfRxIsTelemetryBufEmpty(void)
 bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, int id)
 {
     crsfRuntimeState_t *crsfRuntimeState;
+    serialPort_t *sPort;
 
     rxRuntimeState->channelCount = CRSF_MAX_CHANNEL;
     rxRuntimeState->rcReadRawFn = crsfReadRawRC;
@@ -682,7 +683,7 @@ bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, in
     crsfBaudrate = rxConfig->crsf_use_negotiated_baud ? getCrsfCachedBaudrate() : CRSF_BAUDRATE;
 #endif
 
-    serialPort = openSerialPort(portConfig->identifier,
+    sPort = openSerialPort(portConfig->identifier,
         FUNCTION_RX_SERIAL,
         crsfDataReceive,
         rxRuntimeState,
@@ -690,6 +691,9 @@ bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, in
         CRSF_PORT_MODE,
         CRSF_PORT_OPTIONS | (rxConfig->serialrx_inverted ? SERIAL_INVERTED : 0)
         );
+
+    if (!serialPort)
+        serialPort = sPort;
 
     if (rssiSource == RSSI_SOURCE_NONE) {
         rssiSource = RSSI_SOURCE_RX_PROTOCOL_CRSF;
@@ -700,7 +704,7 @@ bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, in
     }
 #endif
 
-    return serialPort != NULL;
+    return sPort != NULL;
 }
 
 #if defined(USE_CRSF_V3)
