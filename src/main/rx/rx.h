@@ -148,8 +148,10 @@ typedef struct rxRuntimeState_s {
     uint16_t            *channelData;
     void                *frameData;
     timeUs_t            lastRcFrameTimeUs;
-    uint8_t             portID;
+    void               *priv;
 } rxRuntimeState_t;
+
+#define RX_SERIAL_COUNT            2
 
 typedef enum {
     RSSI_SOURCE_NONE = 0,

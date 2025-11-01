@@ -203,7 +203,7 @@ STATIC_UNIT_TESTED bool isPulseValid(uint16_t pulseDuration)
 }
 
 #ifdef USE_SERIALRX
-static bool serialRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState)
+static bool serialRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, int id)
 {
     bool enabled = false;
     switch (rxRuntimeState->serialrxProvider) {
@@ -252,7 +252,7 @@ static bool serialRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntime
 #endif
 #ifdef USE_SERIALRX_CRSF
     case SERIALRX_CRSF:
-        enabled = crsfRxInit(rxConfig, rxRuntimeState);
+        enabled = crsfRxInit(rxConfig, rxRuntimeState, id);
         break;
 #endif
 #ifdef USE_SERIALRX_GHST
@@ -332,7 +332,7 @@ void rxInit(void)
 #ifdef USE_SERIALRX
     case RX_PROVIDER_SERIAL:
         {
-            const bool enabled = serialRxInit(rxConfig(), &rxRuntimeState);
+            const bool enabled = serialRxInit(rxConfig(), &rxRuntimeState, 0);
             if (!enabled) {
                 rxRuntimeState.rcReadRawFn = nullReadRawRC;
                 rxRuntimeState.rcFrameStatusFn = nullFrameStatus;
