@@ -149,7 +149,8 @@ typedef struct rxRuntimeState_s {
     uint16_t            *channelData;
     void                *frameData;
     timeUs_t            lastRcFrameTimeUs;
-    void               *priv;
+    float               rcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];           // scaled, modified, checked and constrained values
+    void                *priv;
 } rxRuntimeState_t;
 
 #define RX_SERIAL_COUNT            2
