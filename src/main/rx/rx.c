@@ -87,11 +87,6 @@ static timeUs_t lastMspRssiUpdateUs = 0;
 static pt1Filter_t rsnrFilter;
 #endif //USE_RX_RSNR
 
-#ifdef USE_RX_LINK_QUALITY_INFO
-static uint16_t linkQuality = 0;
-static uint8_t rfMode = 0;
-#endif
-
 #ifdef USE_RX_LINK_UPLINK_POWER
 static uint16_t uplinkTxPwrMw = 0;  //Uplink Tx power in mW
 #endif
@@ -443,60 +438,83 @@ void resumeRxSignal(void)
 }
 
 #ifdef USE_RX_LINK_QUALITY_INFO
-#define LINK_QUALITY_SAMPLE_COUNT 16
 
-STATIC_UNIT_TESTED uint16_t updateLinkQualitySamples(uint16_t value)
+void rx_set_rfmode(uint8_t rfModeValue, int id)
 {
-    static uint16_t samples[LINK_QUALITY_SAMPLE_COUNT];
-    static uint8_t sampleIndex = 0;
-    static uint16_t sum = 0;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
 
-    sum += value - samples[sampleIndex];
-    samples[sampleIndex] = value;
-    sampleIndex = (sampleIndex + 1) % LINK_QUALITY_SAMPLE_COUNT;
-    return sum / LINK_QUALITY_SAMPLE_COUNT;
+    rxRuntimeState->rfMode = rfModeValue;
+}
+
+STATIC_UNIT_TESTED uint16_t updateLinkQualitySamples(uint16_t value, int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return 0;
+
+    rxRuntimeState->sum += value - rxRuntimeState->samples[rxRuntimeState->sampleIndex];
+    rxRuntimeState->samples[rxRuntimeState->sampleIndex] = value;
+    rxRuntimeState->sampleIndex = (rxRuntimeState->sampleIndex + 1) % LINK_QUALITY_SAMPLE_COUNT;
+    return rxRuntimeState->sum / LINK_QUALITY_SAMPLE_COUNT;
 }
 
 void rxSetRfMode(uint8_t rfModeValue)
 {
-    rfMode = rfModeValue;
+    rx_set_rfmode(rfModeValue, 0);
 }
 #endif
 
-static void setLinkQuality(bool validFrame, timeDelta_t currentDeltaTimeUs)
+void set_link_quality_direct(uint16_t linkqualityValue, int id)
 {
-    static uint16_t rssiSum = 0;
-    static uint16_t rssiCount = 0;
-    static timeDelta_t resampleTimeUs = 0;
+#ifdef USE_RX_LINK_QUALITY_INFO
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+
+    rxRuntimeState->linkQuality = linkqualityValue;
+#else
+    UNUSED(linkqualityValue);
+    UNUSED(id);
+#endif
+}
+
+static void set_link_quality(bool validFrame, timeDelta_t currentDeltaTimeUs, int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
 
 #ifdef USE_RX_LINK_QUALITY_INFO
     if (linkQualitySource == LQ_SOURCE_NONE) {
         // calculate new sample mean
-        linkQuality = updateLinkQualitySamples(validFrame ? LINK_QUALITY_MAX_VALUE : 0);
+        rxRuntimeState->linkQuality = updateLinkQualitySamples(validFrame ? LINK_QUALITY_MAX_VALUE : 0, id);
     }
 #endif
 
     if (rssiSource == RSSI_SOURCE_FRAME_ERRORS) {
-        resampleTimeUs += currentDeltaTimeUs;
-        rssiSum += validFrame ? RSSI_MAX_VALUE : 0;
-        rssiCount++;
+        rxRuntimeState->resampleTimeUs += currentDeltaTimeUs;
+        rxRuntimeState->rssiSum += validFrame ? RSSI_MAX_VALUE : 0;
+        rxRuntimeState->rssiCount++;
 
-        if (resampleTimeUs >= FRAME_ERR_RESAMPLE_US) {
-            setRssi(rssiSum / rssiCount, rssiSource);
-            rssiSum = 0;
-            rssiCount = 0;
-            resampleTimeUs -= FRAME_ERR_RESAMPLE_US;
+        if (rxRuntimeState->resampleTimeUs >= FRAME_ERR_RESAMPLE_US) {
+            set_rssi_val(rxRuntimeState->rssiSum / rxRuntimeState->rssiCount, rssiSource, id);
+            rxRuntimeState->rssiSum = 0;
+            rxRuntimeState->rssiCount = 0;
+            rxRuntimeState->resampleTimeUs -= FRAME_ERR_RESAMPLE_US;
         }
     }
 }
 
+static void setLinkQuality(bool validFrame, timeDelta_t currentDeltaTimeUs)
+{
+    set_link_quality(validFrame, currentDeltaTimeUs, 0);
+}
+
 void setLinkQualityDirect(uint16_t linkqualityValue)
 {
-#ifdef USE_RX_LINK_QUALITY_INFO
-    linkQuality = linkqualityValue;
-#else
-    UNUSED(linkqualityValue);
-#endif
+    set_link_quality_direct(linkqualityValue, 0);
 }
 
 #ifdef USE_RX_LINK_UPLINK_POWER
@@ -1123,19 +1141,48 @@ void setRsnrDirect(int16_t newRsnr)
 #endif //USE_RX_RSNR
 
 #ifdef USE_RX_LINK_QUALITY_INFO
+uint16_t rx_get_link_quality(int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return 0;
+
+    return rxRuntimeState->linkQuality;
+}
+
+uint8_t rx_get_rfmode(int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return 0;
+
+    return rxRuntimeState->rfMode;
+}
+
+uint16_t rx_get_link_quality_percent(int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return 0;
+
+    return (linkQualitySource == LQ_SOURCE_NONE) ? scaleRange(rxRuntimeState->linkQuality,
+                                                              0, LINK_QUALITY_MAX_VALUE,
+                                                              0, 100) : rxRuntimeState->linkQuality;
+}
+
 uint16_t rxGetLinkQuality(void)
 {
-    return linkQuality;
+    return rx_get_link_quality(0);
 }
 
 uint8_t rxGetRfMode(void)
 {
-    return rfMode;
+    return rx_get_rfmode(0);
 }
 
 uint16_t rxGetLinkQualityPercent(void)
 {
-    return (linkQualitySource == LQ_SOURCE_NONE) ? scaleRange(linkQuality, 0, LINK_QUALITY_MAX_VALUE, 0, 100) : linkQuality;
+    return rx_get_link_quality_percent(0);
 }
 #endif
 

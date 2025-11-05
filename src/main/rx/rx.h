@@ -161,6 +161,18 @@ typedef struct rxRuntimeState_s {
     int16_t             rssiDbmRaw;             // range: [-130,0]
     int8_t              activeAntenna;
 #endif //USE_RX_RSSI_DBM
+#ifdef USE_RX_LINK_QUALITY_INFO
+#define LINK_QUALITY_SAMPLE_COUNT 16
+    uint16_t            linkQuality;
+    uint8_t             rfMode;
+    uint16_t            samples[LINK_QUALITY_SAMPLE_COUNT];
+    uint8_t             sampleIndex;
+    uint16_t            sum;
+#endif
+    uint16_t            rssiSum;
+    uint16_t            rssiCount;
+    timeDelta_t         resampleTimeUs;
+
     void                *priv;
 } rxRuntimeState_t;
 
@@ -211,6 +223,10 @@ uint8_t getRssiPercent(void);
 bool isRssiConfigured(void);
 
 #define LINK_QUALITY_MAX_VALUE 1023
+
+uint16_t rx_get_link_quality(int id);
+void set_link_quality_direct(uint16_t linkqualityValue, int id);
+uint16_t rx_get_link_quality_percent(int id);
 
 uint16_t rxGetLinkQuality(void);
 void setLinkQualityDirect(uint16_t linkqualityValue);
