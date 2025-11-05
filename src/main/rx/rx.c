@@ -77,9 +77,6 @@ const char rcChannelLetters[] = "AERT12345678abcdefgh";
 
 
 static timeUs_t lastRssiSmoothingUs = 0;
-#ifdef USE_RX_RSSI_DBM
-static int8_t activeAntenna;
-#endif //USE_RX_RSSI_DBM
 #ifdef USE_RX_RSNR
 static int16_t rsnr = CRSF_SNR_MIN;        // range: [-30,20]
 static int16_t rsnrRaw = CRSF_SNR_MIN;     // range: [-30,20]
@@ -1062,6 +1059,24 @@ void set_rssi_dbm_val_direct(int16_t newRssiDbm, rssiSource_e source, int id)
     rxRuntimeState->rssiDbmRaw = newRssiDbm;
 }
 
+int8_t get_active_antenna(int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return 0;
+
+    return rxRuntimeState->activeAntenna;
+}
+
+void set_active_antenna(int8_t antenna, int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+
+    rxRuntimeState->activeAntenna = antenna;
+}
+
 int16_t getRssiDbm(void)
 {
     return get_rssi_dbm_val(0);
@@ -1079,12 +1094,12 @@ void setRssiDbmDirect(int16_t newRssiDbm, rssiSource_e source)
 
 int8_t getActiveAntenna(void)
 {
-    return activeAntenna;
+    return get_active_antenna(0);
 }
 
 void setActiveAntenna(int8_t antenna)
 {
-    activeAntenna = antenna;
+    set_active_antenna(antenna, 0);
 }
 
 #endif //USE_RX_RSSI_DBM

@@ -159,6 +159,7 @@ typedef struct rxRuntimeState_s {
     pt1Filter_t         rssiDbmFilter;
     int16_t             rssiDbm;                // range: [-130,0]
     int16_t             rssiDbmRaw;             // range: [-130,0]
+    int8_t              activeAntenna;
 #endif //USE_RX_RSSI_DBM
     void                *priv;
 } rxRuntimeState_t;
@@ -219,6 +220,8 @@ uint16_t rxGetLinkQualityPercent(void);
 uint16_t get_rssi_dbm_val(int id);
 void set_rssi_dbm_val(int16_t rssiDbmValue, rssiSource_e source, int id);
 void set_rssi_dbm_val_direct(int16_t newRssiDbm, rssiSource_e source, int id);
+int8_t get_active_antenna(int id);
+void set_active_antenna(int8_t antenna, int id);
 
 int16_t getRssiDbm(void);
 void setRssiDbm(int16_t newRssiDbm, rssiSource_e source);
