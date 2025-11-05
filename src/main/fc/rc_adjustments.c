@@ -716,6 +716,7 @@ static void updateOsdAdjustmentData(int newValue, adjustmentFunction_e adjustmen
 static void processStepwiseAdjustments(controlRateConfig_t *controlRateConfig, const bool canUseRxData)
 {
     const timeMs_t now = millis();
+    float *rcData = getRcData(0);
 
     for (int index = 0; index < stepwiseAdjustmentCount; index++) {
         timedAdjustmentState_t *adjustmentState = &stepwiseAdjustments[index];
@@ -784,6 +785,7 @@ static void setConfigDirtyIfNotPermanent(const channelRange_t *range)
 
 static void processContinuosAdjustments(controlRateConfig_t *controlRateConfig)
 {
+    float *rcData = getRcData(0);
     for (int i = 0; i < continuosAdjustmentCount; i++) {
         continuosAdjustmentState_t *adjustmentState = &continuosAdjustments[i];
         const adjustmentRange_t * const adjustmentRange = adjustmentRanges(adjustmentState->adjustmentRangeIndex);

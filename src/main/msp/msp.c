@@ -1318,6 +1318,7 @@ case MSP_NAME:
     case MSP_RC:
         {
             rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+            float *rcData = getRcData(0);
             for (int i = 0; i < rxRuntimeState->channelCount; i++) {
                 sbufWriteU16(dst, rcData[i]);
             }

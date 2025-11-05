@@ -1269,6 +1269,7 @@ STATIC_UNIT_TESTED bool osdProcessStats1(timeUs_t currentTimeUs)
     if (VISIBLE(osdElementConfig()->item_pos[OSD_AUX_VALUE])) {
         const uint8_t auxChannel = osdConfig()->aux_channel + NON_AUX_CHANNEL_COUNT - 1;
         if (currentTimeUs > osdAuxRefreshTimeUs) {
+            float *rcData = getRcData(0);
             // aux channel start after main channels
             osdAuxValue = (constrain(rcData[auxChannel], PWM_RANGE_MIN, PWM_RANGE_MAX) - PWM_RANGE_MIN) * osdConfig()->aux_scale / PWM_RANGE;
             osdAuxRefreshTimeUs = currentTimeUs + REFRESH_1S;
@@ -1286,6 +1287,7 @@ void osdProcessStats2(timeUs_t currentTimeUs)
 
     if (resumeRefreshAt) {
         if (cmp32(currentTimeUs, resumeRefreshAt) < 0) {
+            float *rcData = getRcData(0);
             // in timeout period, check sticks for activity or CRASH FLIP switch to resume display.
             if (!ARMING_FLAG(ARMED) &&
                 (IS_HI(THROTTLE) || IS_HI(PITCH) || IS_RC_MODE_ACTIVE(BOXFLIPOVERAFTERCRASH))) {

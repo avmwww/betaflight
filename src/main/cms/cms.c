@@ -1389,6 +1389,7 @@ uint16_t cmsHandleKeyWithRepeat(displayPort_t *pDisplay, cms_key_e key, int repe
 
 static uint16_t cmsScanKeys(timeMs_t currentTimeMs, timeMs_t lastCalledMs, int16_t rcDelayMs)
 {
+    float *rcData = getRcData(0);
     static int holdCount = 1;
     static int repeatCount = 1;
     static int repeatBase = 0;
@@ -1492,6 +1493,7 @@ static void cmsUpdate(uint32_t currentTimeUs)
     static uint32_t lastCmsHeartBeatMs = 0;
 
     const uint32_t currentTimeMs = currentTimeUs / 1000;
+    float *rcData = getRcData(0);
 
     if (!cmsInMenu) {
         // Detect menu invocation

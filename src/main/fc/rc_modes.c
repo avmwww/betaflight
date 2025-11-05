@@ -86,6 +86,7 @@ bool airmodeIsEnabled(void)
 
 bool isRangeActive(uint8_t auxChannelIndex, const channelRange_t *range)
 {
+    float *rcData = getRcData(0);
     if (!IS_RANGE_USABLE(range)) {
         return false;
     }

@@ -85,6 +85,7 @@ static int16_t rcDataInt[AUX4 + 1];
 
 static const void *cmsx_menuRcOnDisplayUpdate(displayPort_t *pDisp, const OSD_Entry *selected)
 {
+    float *rcData = getRcData(0);
     UNUSED(pDisp);
     UNUSED(selected);
 

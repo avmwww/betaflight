@@ -683,6 +683,7 @@ FAST_CODE void processRcCommand(void)
 
 FAST_CODE_NOINLINE void updateRcCommands(void)
 {
+    float *rcData = getRcData(0);
     isRxDataNew = true;
 
     for (int axis = 0; axis < 3; axis++) {

@@ -62,6 +62,7 @@ const uint8_t hidChannelMapping[] = {
 void sendRcDataToHid(void)
 {
     int8_t report[9];
+    float *rcData = getRcData(0);
      // Axes
     for (unsigned i = 0; i < USB_CDC_HID_NUM_AXES; i++) {
         const uint8_t channel = hidChannelMapping[i];

@@ -228,6 +228,7 @@ void rcdeviceSend5KeyOSDCableSimualtionEvent(rcdeviceCamSimulationKeyEvent_e key
 
 static void rcdevice5KeySimulationProcess(timeUs_t currentTimeUs)
 {
+    float *rcData = getRcData(0);
     UNUSED(currentTimeUs);
 
 #ifdef USE_CMS

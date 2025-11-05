@@ -1497,6 +1497,7 @@ static void osdElementPower(osdElementParms_t *element)
 static void osdElementRcChannels(osdElementParms_t *element)
 {
     static uint8_t channel = 0;
+    float *rcData = getRcData(0);
 
     if (osdConfig()->rcChannels[channel] >= 0) {
         // Translate (1000, 2000) to (-1000, 1000)
@@ -1636,6 +1637,7 @@ static void osdElementStickOverlay(osdElementParms_t *element)
 {
     // Now draw the cursor
     rc_alias_e vertical_channel, horizontal_channel;
+    float *rcData = getRcData(0);
 
     if (element->item == OSD_STICK_OVERLAY_LEFT) {
         vertical_channel = radioModes[osdConfig()->overlay_radio_mode-1].left_vertical;

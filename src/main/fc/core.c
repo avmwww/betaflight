@@ -645,6 +645,7 @@ void handleInflightCalibrationStickPosition(void)
 
 static void updateInflightCalibrationState(void)
 {
+    float *rcData = getRcData(0);
     if (AccInflightCalibrationArmed && ARMING_FLAG(ARMED) && rcData[THROTTLE] > rxConfig()->mincheck && !IS_RC_MODE_ACTIVE(BOXARM)) {   // Copter is airborne and you are turning it off via boxarm : start measurement
         InflightcalibratingA = 50;
         AccInflightCalibrationArmed = false;
@@ -714,6 +715,7 @@ void runawayTakeoffTemporaryDisable(uint8_t disableFlag)
 // returns negative values for reversed thrust in 3D mode
 int8_t calculateThrottlePercent(void)
 {
+    float *rcData = getRcData(0);
     uint8_t ret = 0;
     int channelData = constrain(rcData[THROTTLE], PWM_RANGE_MIN, PWM_RANGE_MAX);
 
@@ -1220,6 +1222,7 @@ static FAST_CODE void subTaskMotorUpdate(timeUs_t currentTimeUs)
 
 static FAST_CODE_NOINLINE void subTaskRcCommand(timeUs_t currentTimeUs)
 {
+    float *rcData = getRcData(0);
     UNUSED(currentTimeUs);
 
     // If we're armed, at minimum throttle, and we do arming via the

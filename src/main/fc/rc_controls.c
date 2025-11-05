@@ -107,6 +107,7 @@ bool isUsingSticksForArming(void)
 
 throttleStatus_e calculateThrottleStatus(void)
 {
+    float *rcData = getRcData(0);
     if (featureIsEnabled(FEATURE_3D)) {
         if (IS_RC_MODE_ACTIVE(BOX3D) || flight3DConfig()->switched_mode3d) {
             if (rcData[THROTTLE] < rxConfig()->mincheck) {
@@ -132,6 +133,7 @@ throttleStatus_e calculateThrottleStatus(void)
 
 void processRcStickPositions(void)
 {
+    float *rcData = getRcData(0);
     // time the sticks are maintained
     static int16_t rcDelayMs;
     // hold sticks position for command combos

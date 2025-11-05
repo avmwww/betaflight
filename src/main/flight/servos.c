@@ -210,6 +210,7 @@ int16_t determineServoMiddleOrForwardFromChannel(servoIndex_e servoIndex)
 {
     const uint8_t channelToForwardFrom = servoParams(servoIndex)->forwardFromChannel;
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+    float *rcData = getRcData(0);
 
     if (channelToForwardFrom != CHANNEL_FORWARDING_DISABLED && channelToForwardFrom < rxRuntimeState->channelCount) {
         return scaleRangef(constrainf(rcData[channelToForwardFrom], PWM_RANGE_MIN, PWM_RANGE_MAX), PWM_RANGE_MIN, PWM_RANGE_MAX, servoParams(servoIndex)->min, servoParams(servoIndex)->max);
@@ -302,6 +303,7 @@ void servoMixerLoadMix(int index)
 
 STATIC_UNIT_TESTED void forwardAuxChannelsToServos(uint8_t firstServoIndex)
 {
+    float *rcData = getRcData(0);
     // start forwarding from this channel
     int channelOffset = servoConfig()->channelForwardingStartChannel;
     const int maxAuxChannelCount = MIN(MAX_AUX_CHANNEL_COUNT, rxConfig()->max_aux_channel);
@@ -413,6 +415,7 @@ void servoMixer(void)
 {
     int16_t input[INPUT_SOURCE_COUNT]; // Range [-500:+500]
     static int16_t currentOutput[MAX_SERVO_RULES];
+    float *rcData = getRcData(0);
 
     if (FLIGHT_MODE(PASSTHRU_MODE)) {
         // Direct passthru from RX
