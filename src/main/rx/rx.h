@@ -252,6 +252,8 @@ void setRsnr(int16_t newRsnr);
 void setRsnrDirect(int16_t newRsnr);
 #endif //USE_RX_RSNR
 
+uint8_t rx_get_rfmode(int id);
+void rx_set_rfmode(uint8_t rfModeValue, int id);
 void rxSetRfMode(uint8_t rfModeValue);
 uint8_t rxGetRfMode(void);
 

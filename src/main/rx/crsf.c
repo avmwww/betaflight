@@ -240,13 +240,10 @@ static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, 
     int16_t rssiDbm = -1 * (stats.active_antenna ? stats.uplink_RSSI_2 : stats.uplink_RSSI_1);
     if (rssiSource == RSSI_SOURCE_RX_PROTOCOL_CRSF) {
         const uint16_t rssiPercentScaled = scaleRange(rssiDbm, CRSF_RSSI_MIN, CRSF_RSSI_MAX, 0, RSSI_MAX_VALUE);
-        if (id == 0)
-            setRssi(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF);
-        else
-            set_rssi_val(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF, id);
+        set_rssi_val(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF, id);
     }
 #ifdef USE_RX_RSSI_DBM
-    setRssiDbm(rssiDbm, RSSI_SOURCE_RX_PROTOCOL_CRSF);
+    set_rssi_dbm_val(rssiDbm, RSSI_SOURCE_RX_PROTOCOL_CRSF, id);
     setActiveAntenna(stats.active_antenna);
 #endif
 
@@ -256,8 +253,8 @@ static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, 
 
 #ifdef USE_RX_LINK_QUALITY_INFO
     if (linkQualitySource == LQ_SOURCE_RX_PROTOCOL_CRSF) {
-        setLinkQualityDirect(stats.uplink_Link_quality);
-        rxSetRfMode(stats.rf_Mode);
+        set_link_quality_direct(stats.uplink_Link_quality, id);
+        rx_set_rfmode(stats.rf_Mode, id);
     }
 #endif
 
@@ -281,7 +278,7 @@ static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, 
 }
 
 #if defined(USE_CRSF_V3)
-static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsPtr, timeUs_t currentTimeUs)
+static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsPtr, timeUs_t currentTimeUs, int id)
 {
     const crsfLinkStatisticsTx_t stats = *statsPtr;
     lastLinkStatisticsFrameUs = currentTimeUs;
@@ -291,7 +288,7 @@ static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsP
     }
 #ifdef USE_RX_RSSI_DBM
     int16_t rssiDbm = -1 * stats.uplink_RSSI;
-    setRssiDbm(rssiDbm, RSSI_SOURCE_RX_PROTOCOL_CRSF);
+    set_rssi_dbm_val(rssiDbm, RSSI_SOURCE_RX_PROTOCOL_CRSF, id);
 #endif
 
 #ifdef USE_RX_RSNR
@@ -300,7 +297,7 @@ static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsP
 
 #ifdef USE_RX_LINK_QUALITY_INFO
     if (linkQualitySource == LQ_SOURCE_RX_PROTOCOL_CRSF) {
-        setLinkQualityDirect(stats.uplink_Link_quality);
+        set_link_quality_direct(stats.uplink_Link_quality, id);
     }
 #endif
 
@@ -452,7 +449,7 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
                         (crsfRuntimeState->crsfFrame.frame.deviceAddress == CRSF_ADDRESS_FLIGHT_CONTROLLER) &&
                         (crsfRuntimeState->crsfFrame.frame.frameLength == CRSF_FRAME_ORIGIN_DEST_SIZE + CRSF_FRAME_LINK_STATISTICS_TX_PAYLOAD_SIZE)) {
                         const crsfLinkStatisticsTx_t* statsFrame = (const crsfLinkStatisticsTx_t*)&crsfRuntimeState->crsfFrame.frame.payload;
-                        handleCrsfLinkStatisticsTxFrame(statsFrame, currentTimeUs);
+                        handleCrsfLinkStatisticsTxFrame(statsFrame, currentTimeUs, crsfRuntimeState->id);
                     }
                     break;
                 }

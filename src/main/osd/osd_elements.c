@@ -1254,21 +1254,30 @@ static void osdBackgroundHorizonSidebars(osdElementParms_t *element)
 #ifdef USE_RX_LINK_QUALITY_INFO
 static void osdElementLinkQuality(osdElementParms_t *element)
 {
-    uint16_t osdLinkQuality = 0;
+    uint16_t osdLinkQualityPercent = 0, osdLinkQuality = 0;
+    uint8_t osdRfMode = 0;
+    uint8_t item = element->item;
 
-    if (rxGetLinkQualityPercent() < osdConfig()->link_quality_alarm) {
+    if (item == OSD_LINK_QUALITY) {
+        osdLinkQualityPercent = rxGetLinkQualityPercent();
+        osdLinkQuality = rxGetLinkQuality();
+        osdRfMode = rxGetRfMode();
+    } else if (item >= OSD_LINK_QUALITY_X && item <= OSD_LINK_QUALITY_X_LAST) {
+        osdLinkQualityPercent = rx_get_link_quality_percent(item + 1 - OSD_LINK_QUALITY_X);
+        osdLinkQuality = rx_get_link_quality(item + 1 - OSD_LINK_QUALITY_X);
+        osdRfMode = rx_get_rfmode(item + 1 - OSD_LINK_QUALITY_X);
+    }
+
+    if (osdLinkQualityPercent < osdConfig()->link_quality_alarm) {
         element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
     }
 
     if (linkQualitySource == LQ_SOURCE_RX_PROTOCOL_CRSF) { // 0-99
-        osdLinkQuality = rxGetLinkQuality();
-        const uint8_t osdRfMode = rxGetRfMode();
         tfp_sprintf(element->buff, "%c%1d:%2d", SYM_LINK_QUALITY, osdRfMode, osdLinkQuality);
     } else if (linkQualitySource == LQ_SOURCE_RX_PROTOCOL_GHST) { // 0-100
-        osdLinkQuality = rxGetLinkQuality();
         tfp_sprintf(element->buff, "%c%2d", SYM_LINK_QUALITY, osdLinkQuality);
     } else { // 0-9
-        osdLinkQuality = rxGetLinkQuality() * 10 / LINK_QUALITY_MAX_VALUE;
+        osdLinkQuality = osdLinkQuality * 10 / LINK_QUALITY_MAX_VALUE;
         if (osdLinkQuality >= 10) {
             osdLinkQuality = 9;
         }
@@ -1572,9 +1581,15 @@ static void osdElementRtcTime(osdElementParms_t *element)
 #ifdef USE_RX_RSSI_DBM
 static void osdElementRssiDbm(osdElementParms_t *element)
 {
+    uint8_t item = element->item;
     const int8_t antenna = getActiveAntenna();
-    const int16_t osdRssiDbm = getRssiDbm();
+    int16_t osdRssiDbm = 0;
     static bool diversity = false;
+
+    if (item == OSD_RSSI_DBM_VALUE)
+        osdRssiDbm = getRssiDbm();
+    else if (item >= OSD_RSSI_X_DBM_VALUE && item <= OSD_RSSI_X_DBM_VALUE_LAST)
+        osdRssiDbm = get_rssi_dbm_val(item + 1 - OSD_RSSI_X_DBM_VALUE);
 
     if (osdRssiDbm < osdConfig()->rssi_dbm_alarm) {
         element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
@@ -1792,7 +1807,6 @@ static const uint8_t osdElementDisplayOrder[] = {
     OSD_RSSI_X_VALUE,
     OSD_RSSI_X_VALUE + 1,
     OSD_RSSI_X_VALUE + 2,
-    OSD_RSSI_X_VALUE + 3,
     OSD_CROSSHAIRS,
     OSD_HORIZON_SIDEBARS,
     OSD_UP_DOWN_REFERENCE,
@@ -1845,12 +1859,18 @@ static const uint8_t osdElementDisplayOrder[] = {
 #endif
 #ifdef USE_RX_LINK_QUALITY_INFO
     OSD_LINK_QUALITY,
+    OSD_LINK_QUALITY_X,
+    OSD_LINK_QUALITY_X + 1,
+    OSD_LINK_QUALITY_X + 2,
 #endif
 #ifdef USE_RX_LINK_UPLINK_POWER
     OSD_TX_UPLINK_POWER,
 #endif
 #ifdef USE_RX_RSSI_DBM
     OSD_RSSI_DBM_VALUE,
+    OSD_RSSI_X_DBM_VALUE,
+    OSD_RSSI_X_DBM_VALUE + 1,
+    OSD_RSSI_X_DBM_VALUE + 2,
 #endif
 #ifdef USE_RX_RSNR
     OSD_RSNR_VALUE,
@@ -1895,7 +1915,6 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
     [OSD_RSSI_X_VALUE]            = osdElementRssi,
     [OSD_RSSI_X_VALUE + 1]        = osdElementRssi,
     [OSD_RSSI_X_VALUE + 2]        = osdElementRssi,
-    [OSD_RSSI_X_VALUE + 3]        = osdElementRssi,
     [OSD_MAIN_BATT_VOLTAGE]       = osdElementMainBatteryVoltage,
     [OSD_CROSSHAIRS]              = osdElementCrosshairs,  // only has background, but needs to be over other elements (like artificial horizon)
 #ifdef USE_ACC
@@ -1974,6 +1993,9 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
 #endif
 #ifdef USE_RX_LINK_QUALITY_INFO
     [OSD_LINK_QUALITY]            = osdElementLinkQuality,
+    [OSD_LINK_QUALITY_X]            = osdElementLinkQuality,
+    [OSD_LINK_QUALITY_X + 1]        = osdElementLinkQuality,
+    [OSD_LINK_QUALITY_X + 2]        = osdElementLinkQuality,
 #endif
 #ifdef USE_RX_LINK_UPLINK_POWER
     [OSD_TX_UPLINK_POWER]         = osdElementTxUplinkPower,
@@ -1998,6 +2020,9 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
 #endif
 #ifdef USE_RX_RSSI_DBM
     [OSD_RSSI_DBM_VALUE]          = osdElementRssiDbm,
+    [OSD_RSSI_X_DBM_VALUE]        = osdElementRssiDbm,
+    [OSD_RSSI_X_DBM_VALUE + 1]    = osdElementRssiDbm,
+    [OSD_RSSI_X_DBM_VALUE + 2]    = osdElementRssiDbm,
 #endif
 #ifdef USE_RX_RSNR
     [OSD_RSNR_VALUE]              = osdElementRsnr,
@@ -2392,34 +2417,36 @@ void osdUpdateAlarms(void)
     // This is overdone?
 
     int32_t alt = osdGetMetersToSelectedUnit(getEstimatedAltitudeCm()) / 100;
+    int i, id;
 
-    for (int i = 0; i < RSSI_NUM; i++) {
+    for (i = 0; i < RSSI_NUM + 1; i++) {
+        id = (i == 0) ? OSD_RSSI_VALUE : OSD_RSSI_X_VALUE + i - 1;
         if (get_rssi_val_percent(i) < osdConfig()->rssi_alarm) {
-            SET_BLINK(OSD_RSSI_X_VALUE + 1 + i);
+            SET_BLINK(id);
         } else {
-            CLR_BLINK(OSD_RSSI_X_VALUE + 1 + i);
+            CLR_BLINK(id);
         }
     }
 
-    if (getRssiPercent() < osdConfig()->rssi_alarm) {
-        SET_BLINK(OSD_RSSI_VALUE);
-    } else {
-        CLR_BLINK(OSD_RSSI_VALUE);
-    }
-
 #ifdef USE_RX_RSSI_DBM
-    if (getRssiDbm() < osdConfig()->rssi_dbm_alarm) {
-        SET_BLINK(OSD_RSSI_DBM_VALUE);
-    } else {
-        CLR_BLINK(OSD_RSSI_DBM_VALUE);
+    for (i = 0; i < RSSI_NUM + 1; i++) {
+        id = (i == 0) ? OSD_RSSI_DBM_VALUE : OSD_RSSI_X_DBM_VALUE + i - 1;
+        if (get_rssi_dbm_val(i) < osdConfig()->rssi_dbm_alarm) {
+            SET_BLINK(id);
+        } else {
+            CLR_BLINK(id);
+        }
     }
 #endif
 
 #ifdef USE_RX_LINK_QUALITY_INFO
-    if (rxGetLinkQualityPercent() < osdConfig()->link_quality_alarm) {
-        SET_BLINK(OSD_LINK_QUALITY);
-    } else {
-        CLR_BLINK(OSD_LINK_QUALITY);
+    for (i = 0; i < RSSI_NUM + 1; i++) {
+        id = (i == 0) ? OSD_LINK_QUALITY : OSD_LINK_QUALITY_X + i - 1;
+        if (rx_get_link_quality_percent(i) < osdConfig()->link_quality_alarm) {
+            SET_BLINK(id);
+        } else {
+            CLR_BLINK(id);
+        }
     }
 #endif // USE_RX_LINK_QUALITY_INFO
 
