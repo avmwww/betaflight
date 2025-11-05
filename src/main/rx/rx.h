@@ -21,6 +21,7 @@
 #pragma once
 
 #include "common/time.h"
+#include "common/filter.h"
 
 #include "pg/pg.h"
 #include "pg/rx.h"
@@ -150,6 +151,15 @@ typedef struct rxRuntimeState_s {
     void                *frameData;
     timeUs_t            lastRcFrameTimeUs;
     float               rcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];           // scaled, modified, checked and constrained values
+    pt1Filter_t         rssiFilter;
+    pt1Filter_t         frameErrFilter;
+    uint16_t            rssi;                   // range: [0;1023]
+    uint16_t            rssiRaw;                // range: [0;1023]
+#ifdef USE_RX_RSSI_DBM
+    pt1Filter_t         rssiDbmFilter;
+    int16_t             rssiDbm;                // range: [-130,0]
+    int16_t             rssiDbmRaw;             // range: [-130,0]
+#endif //USE_RX_RSSI_DBM
     void                *priv;
 } rxRuntimeState_t;
 
@@ -206,6 +216,10 @@ void setLinkQualityDirect(uint16_t linkqualityValue);
 uint16_t rxGetLinkQualityPercent(void);
 
 #ifdef USE_RX_RSSI_DBM
+uint16_t get_rssi_dbm_val(int id);
+void set_rssi_dbm_val(int16_t rssiDbmValue, rssiSource_e source, int id);
+void set_rssi_dbm_val_direct(int16_t newRssiDbm, rssiSource_e source, int id);
+
 int16_t getRssiDbm(void);
 void setRssiDbm(int16_t newRssiDbm, rssiSource_e source);
 void setRssiDbmDirect(int16_t newRssiDbm, rssiSource_e source);

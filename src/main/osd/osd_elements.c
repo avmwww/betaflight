@@ -1541,7 +1541,7 @@ static void osdElementRssi(osdElementParms_t *element)
     if (item == OSD_RSSI_VALUE)
         osdRssi = getRssi();
     else if (item >= OSD_RSSI_X_VALUE && item <= OSD_RSSI_X_VALUE_LAST)
-        osdRssi = get_rssi_val(item - OSD_RSSI_X_VALUE);
+        osdRssi = get_rssi_val(item + 1 - OSD_RSSI_X_VALUE);
 
     osdRssi = osdRssi * 100 / 1024; // change range
 
@@ -1554,7 +1554,7 @@ static void osdElementRssi(osdElementParms_t *element)
             element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
         }
     } else if (item >= OSD_RSSI_X_VALUE && item <= OSD_RSSI_X_VALUE_LAST) {
-        if (get_rssi_val_percent(item - OSD_RSSI_X_VALUE) < osdConfig()->rssi_alarm) {
+        if (get_rssi_val_percent(item + 1 - OSD_RSSI_X_VALUE) < osdConfig()->rssi_alarm) {
             element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
         }
     }
@@ -1893,6 +1893,9 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
     [OSD_CAMERA_FRAME]            = NULL,  // only has background. Added first so it's the lowest "layer" and doesn't cover other elements
     [OSD_RSSI_VALUE]              = osdElementRssi,
     [OSD_RSSI_X_VALUE]            = osdElementRssi,
+    [OSD_RSSI_X_VALUE + 1]        = osdElementRssi,
+    [OSD_RSSI_X_VALUE + 2]        = osdElementRssi,
+    [OSD_RSSI_X_VALUE + 3]        = osdElementRssi,
     [OSD_MAIN_BATT_VOLTAGE]       = osdElementMainBatteryVoltage,
     [OSD_CROSSHAIRS]              = osdElementCrosshairs,  // only has background, but needs to be over other elements (like artificial horizon)
 #ifdef USE_ACC
@@ -2392,9 +2395,9 @@ void osdUpdateAlarms(void)
 
     for (int i = 0; i < RSSI_NUM; i++) {
         if (get_rssi_val_percent(i) < osdConfig()->rssi_alarm) {
-            SET_BLINK(OSD_RSSI_X_VALUE + i);
+            SET_BLINK(OSD_RSSI_X_VALUE + 1 + i);
         } else {
-            CLR_BLINK(OSD_RSSI_X_VALUE + i);
+            CLR_BLINK(OSD_RSSI_X_VALUE + 1 + i);
         }
     }
 

@@ -75,16 +75,10 @@
 
 const char rcChannelLetters[] = "AERT12345678abcdefgh";
 
-static uint16_t rssi_val[RSSI_NUM] = {0};                  // range: [0;1023]
-static uint16_t rssi_raw_val[RSSI_NUM] = {0};              // range: [0;1023]
 
-static uint16_t rssi = 0;                  // range: [0;1023]
-static uint16_t rssiRaw = 0;               // range: [0;1023]
 static timeUs_t lastRssiSmoothingUs = 0;
 #ifdef USE_RX_RSSI_DBM
 static int8_t activeAntenna;
-static int16_t rssiDbm = CRSF_RSSI_MIN;    // range: [-130,0]
-static int16_t rssiDbmRaw = CRSF_RSSI_MIN; // range: [-130,0]
 #endif //USE_RX_RSSI_DBM
 #ifdef USE_RX_RSNR
 static int16_t rsnr = CRSF_SNR_MIN;        // range: [-30,20]
@@ -92,11 +86,6 @@ static int16_t rsnrRaw = CRSF_SNR_MIN;     // range: [-30,20]
 #endif //USE_RX_RSNR
 static timeUs_t lastMspRssiUpdateUs = 0;
 
-static pt1Filter_t frameErrFilter;
-static pt1Filter_t rssiFilter;
-#ifdef USE_RX_RSSI_DBM
-static pt1Filter_t rssiDbmFilter;
-#endif //USE_RX_RSSI_DBM
 #ifdef USE_RX_RSNR
 static pt1Filter_t rsnrFilter;
 #endif //USE_RX_RSNR
@@ -128,7 +117,6 @@ static timeUs_t suspendRxSignalUntil = 0;
 static uint8_t  skipRxSamples = 0;
 
 static float rcRaw[MAX_SUPPORTED_RC_CHANNEL_COUNT];     // last received raw value, as it comes
-//static float rcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];           // scaled, modified, checked and constrained values
 uint32_t validRxSignalTimeout[MAX_SUPPORTED_RC_CHANNEL_COUNT];
 
 #define MAX_INVALID_PULSE_TIME_MS 300                   // hold time in milliseconds after bad channel or Rx link loss
@@ -290,9 +278,9 @@ static bool serialRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntime
 }
 #endif
 
-void rxInit(void)
+static void rxInitID(int id)
 {
-    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
 
     if (featureIsEnabled(FEATURE_RX_PARALLEL_PWM)) {
         rxRuntimeState->rxProvider = RX_PROVIDER_PARALLEL_PWM;
@@ -312,6 +300,8 @@ void rxInit(void)
     rxRuntimeState->rcFrameStatusFn = nullFrameStatus;
     rxRuntimeState->rcProcessFrameFn = nullProcessFrame;
     rxRuntimeState->lastRcFrameTimeUs = 0;
+    rxRuntimeState->rssiDbm = CRSF_RSSI_MIN;
+    rxRuntimeState->rssiDbmRaw = CRSF_RSSI_MIN;
     rcSampleIndex = 0;
 
     uint32_t now = millis();
@@ -346,7 +336,7 @@ void rxInit(void)
 #ifdef USE_SERIALRX
     case RX_PROVIDER_SERIAL:
         {
-            const bool enabled = serialRxInit(rxConfig(), rxRuntimeState, 0);
+            const bool enabled = serialRxInit(rxConfig(), rxRuntimeState, id);
             if (!enabled) {
                 rxRuntimeState->rcReadRawFn = nullReadRawRC;
                 rxRuntimeState->rcFrameStatusFn = nullFrameStatus;
@@ -395,15 +385,15 @@ void rxInit(void)
     }
 
     // Setup source frame RSSI filtering to take averaged values every FRAME_ERR_RESAMPLE_US
-    pt1FilterInit(&frameErrFilter, pt1FilterGain(GET_FRAME_ERR_LPF_FREQUENCY(rxConfig()->rssi_src_frame_lpf_period), FRAME_ERR_RESAMPLE_US * 1e-6f));
+    pt1FilterInit(&rxRuntimeState->frameErrFilter, pt1FilterGain(GET_FRAME_ERR_LPF_FREQUENCY(rxConfig()->rssi_src_frame_lpf_period), FRAME_ERR_RESAMPLE_US * 1e-6f));
 
     // Configurable amount of filtering to remove excessive jumpiness of the values on the osd
     float k = (256.0f - rxConfig()->rssi_smoothing) / 256.0f;
 
-    pt1FilterInit(&rssiFilter, k);
+    pt1FilterInit(&rxRuntimeState->rssiFilter, k);
 
 #ifdef USE_RX_RSSI_DBM
-    pt1FilterInit(&rssiDbmFilter, k);
+    pt1FilterInit(&rxRuntimeState->rssiDbmFilter, k);
 #endif //USE_RX_RSSI_DBM
 
 #ifdef USE_RX_RSNR
@@ -411,6 +401,14 @@ void rxInit(void)
 #endif //USE_RX_RSNR
 
     rxChannelCount = MIN(rxConfig()->max_aux_channel + NON_AUX_CHANNEL_COUNT, rxRuntimeState->channelCount);
+}
+
+void rxInit(void)
+{
+    int id;
+
+    for (id = 0; id < RX_SERIAL_COUNT; id++)
+        rxInitID(id);
 }
 
 bool rxIsReceivingSignal(void)
@@ -831,28 +829,68 @@ void parseRcChannels(const char *input, rxConfig_t *rxConfig)
     }
 }
 
-void setRssiDirect(uint16_t newRssi, rssiSource_e source)
+/* multi rssi */
+void set_rssi_val_direct(uint16_t newRssi, rssiSource_e source, int id)
 {
     if (source != rssiSource) {
         return;
     }
 
-    rssi = newRssi;
-    rssiRaw = newRssi;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+
+    rxRuntimeState->rssi = newRssi;
+    rxRuntimeState->rssiRaw = newRssi;
+}
+
+void set_rssi_val(uint16_t rssiValue, rssiSource_e source, int id)
+{
+    if (source != rssiSource) {
+        return;
+    }
+
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+
+    // Filter RSSI value
+    if (source == RSSI_SOURCE_FRAME_ERRORS) {
+        rxRuntimeState->rssiRaw = pt1FilterApply(&rxRuntimeState->frameErrFilter, rssiValue);
+    } else {
+        rxRuntimeState->rssiRaw = rssiValue;
+    }
+}
+
+uint16_t get_rssi_val(int id)
+{
+    uint16_t rssiValue = 0;
+
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (rxRuntimeState)
+        rssiValue = rxRuntimeState->rssi;
+
+    // RSSI_Invert option
+    if (rxConfig()->rssi_invert) {
+        rssiValue = RSSI_MAX_VALUE - rssiValue;
+    }
+
+    return rxConfig()->rssi_scale / 100.0f * rssiValue + rxConfig()->rssi_offset * RSSI_OFFSET_SCALING;
+}
+
+uint8_t get_rssi_val_percent(int id)
+{
+    return scaleRange(get_rssi_val(id), 0, RSSI_MAX_VALUE, 0, 100);
+}
+
+void setRssiDirect(uint16_t newRssi, rssiSource_e source)
+{
+    set_rssi_val_direct(newRssi, source, 0);
 }
 
 void setRssi(uint16_t rssiValue, rssiSource_e source)
 {
-    if (source != rssiSource) {
-        return;
-    }
-
-    // Filter RSSI value
-    if (source == RSSI_SOURCE_FRAME_ERRORS) {
-        rssiRaw = pt1FilterApply(&frameErrFilter, rssiValue);
-    } else {
-        rssiRaw = rssiValue;
-    }
+    set_rssi_val(rssiValue, source, 0);
 }
 
 void setRssiMsp(uint8_t newMspRssi)
@@ -862,7 +900,11 @@ void setRssiMsp(uint8_t newMspRssi)
     }
 
     if (rssiSource == RSSI_SOURCE_MSP) {
-        rssi = ((uint16_t)newMspRssi) << 2;
+        rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+        if (!rxRuntimeState)
+            return;
+
+        rxRuntimeState->rssi = ((uint16_t)newMspRssi) << 2;
         lastMspRssiUpdateUs = micros();
     }
 }
@@ -898,14 +940,33 @@ static void updateRSSIADC(timeUs_t currentTimeUs)
 
 static void update_rssi_val(float k2)
 {
-    int i;
-    for (i = 0; i < RSSI_NUM; i++) {
-        if (rssi_val[i] != rssi_raw_val[i]) {
-            pt1FilterUpdateCutoff(&rssiFilter, k2);
-            rssi_val[i] = pt1FilterApply(&rssiFilter, rssi_raw_val[i]);
+    rxRuntimeState_t *rxRuntimeState;
+    int i = 0;
+
+    while ((rxRuntimeState = getRxRuntimeState(i)) != NULL) {
+        if (rxRuntimeState->rssi != rxRuntimeState->rssiRaw) {
+            pt1FilterUpdateCutoff(&rxRuntimeState->rssiFilter, k2);
+            rxRuntimeState->rssi = pt1FilterApply(&rxRuntimeState->rssiFilter, rxRuntimeState->rssiRaw);
         }
+        i++;
     }
 }
+
+#ifdef USE_RX_RSSI_DBM
+static void update_rssi_dbm_val(float k2)
+{
+    rxRuntimeState_t *rxRuntimeState;
+    int i = 0;
+
+    while ((rxRuntimeState = getRxRuntimeState(i)) != NULL) {
+        if (rxRuntimeState->rssiDbm != rxRuntimeState->rssiDbmRaw) {
+            pt1FilterUpdateCutoff(&rxRuntimeState->rssiDbmFilter, k2);
+            rxRuntimeState->rssiDbm = pt1FilterApply(&rxRuntimeState->rssiDbmFilter, rxRuntimeState->rssiDbmRaw);
+        }
+        i++;
+    }
+}
+#endif
 
 void updateRSSI(timeUs_t currentTimeUs)
 {
@@ -918,7 +979,9 @@ void updateRSSI(timeUs_t currentTimeUs)
         break;
     case RSSI_SOURCE_MSP:
         if (cmpTimeUs(micros(), lastMspRssiUpdateUs) > DELAY_1500_MS) {  // 1.5s
-            rssi = 0;
+            rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+            if (rxRuntimeState)
+                rxRuntimeState->rssi = 0;
         }
         break;
     default:
@@ -933,18 +996,10 @@ void updateRSSI(timeUs_t currentTimeUs)
             float factor = ((currentTimeUs - lastRssiSmoothingUs) / 1000000.0f) / (1.0f / 4.0f);
             float k2  = (k * factor) / ((k * factor) - k + 1);
 
-            if (rssi != rssiRaw) {
-                pt1FilterUpdateCutoff(&rssiFilter, k2);
-                rssi = pt1FilterApply(&rssiFilter, rssiRaw);
-            }
-
             update_rssi_val(k2);
 
 #ifdef USE_RX_RSSI_DBM
-            if (rssiDbm != rssiDbmRaw) {
-                pt1FilterUpdateCutoff(&rssiDbmFilter, k2);
-                rssiDbm = pt1FilterApply(&rssiDbmFilter, rssiDbmRaw);
-            }
+            update_rssi_dbm_val(k2);
 #endif //USE_RX_RSSI_DBM
 
 #ifdef USE_RX_RSNR
@@ -961,44 +1016,65 @@ void updateRSSI(timeUs_t currentTimeUs)
 
 uint16_t getRssi(void)
 {
-    uint16_t rssiValue = rssi;
-
-    // RSSI_Invert option
-    if (rxConfig()->rssi_invert) {
-        rssiValue = RSSI_MAX_VALUE - rssiValue;
-    }
-
-    return rxConfig()->rssi_scale / 100.0f * rssiValue + rxConfig()->rssi_offset * RSSI_OFFSET_SCALING;
+    return get_rssi_val(0);
 }
 
 uint8_t getRssiPercent(void)
 {
-    return scaleRange(getRssi(), 0, RSSI_MAX_VALUE, 0, 100);
+    return get_rssi_val_percent(0);
 }
 
 #ifdef USE_RX_RSSI_DBM
+uint16_t get_rssi_dbm_val(int id)
+{
+    int16_t rssiValue = 0;
+
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (rxRuntimeState)
+        rssiValue = rxRuntimeState->rssiDbm;
+    return rssiValue;
+}
+
+void set_rssi_dbm_val(int16_t rssiDbmValue, rssiSource_e source, int id)
+{
+    if (source != rssiSource) {
+        return;
+    }
+
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+
+    rxRuntimeState->rssiDbmRaw = rssiDbmValue;
+}
+
+void set_rssi_dbm_val_direct(int16_t newRssiDbm, rssiSource_e source, int id)
+{
+    if (source != rssiSource) {
+        return;
+    }
+
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+
+    rxRuntimeState->rssiDbm = newRssiDbm;
+    rxRuntimeState->rssiDbmRaw = newRssiDbm;
+}
+
 int16_t getRssiDbm(void)
 {
-    return rssiDbm;
+    return get_rssi_dbm_val(0);
 }
 
 void setRssiDbm(int16_t rssiDbmValue, rssiSource_e source)
 {
-    if (source != rssiSource) {
-        return;
-    }
-
-    rssiDbmRaw = rssiDbmValue;
+    set_rssi_dbm_val(rssiDbmValue, source, 0);
 }
 
 void setRssiDbmDirect(int16_t newRssiDbm, rssiSource_e source)
 {
-    if (source != rssiSource) {
-        return;
-    }
-
-    rssiDbm = newRssiDbm;
-    rssiDbmRaw = newRssiDbm;
+    set_rssi_dbm_val_direct(newRssiDbm, source, 0);
 }
 
 int8_t getActiveAntenna(void)
@@ -1085,48 +1161,6 @@ timeUs_t rxFrameTimeUs(void)
 {
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
     return rxRuntimeState->lastRcFrameTimeUs;
-}
-
-/* multi rssi */
-void set_rssi_val_direct(uint16_t newRssi, rssiSource_e source, int id)
-{
-    if (source != rssiSource) {
-        return;
-    }
-
-    rssi_val[id] = newRssi;
-    rssi_raw_val[id] = newRssi;
-}
-
-void set_rssi_val(uint16_t rssiValue, rssiSource_e source, int id)
-{
-    if (source != rssiSource) {
-        return;
-    }
-
-    // Filter RSSI value
-    if (source == RSSI_SOURCE_FRAME_ERRORS) {
-        rssi_raw_val[id] = pt1FilterApply(&frameErrFilter, rssiValue);
-    } else {
-        rssi_raw_val[id] = rssiValue;
-    }
-}
-
-uint16_t get_rssi_val(int id)
-{
-    uint16_t rssiValue = rssi_val[id];
-
-    // RSSI_Invert option
-    if (rxConfig()->rssi_invert) {
-        rssiValue = RSSI_MAX_VALUE - rssiValue;
-    }
-
-    return rxConfig()->rssi_scale / 100.0f * rssiValue + rxConfig()->rssi_offset * RSSI_OFFSET_SCALING;
-}
-
-uint8_t get_rssi_val_percent(int id)
-{
-    return scaleRange(get_rssi_val(id), 0, RSSI_MAX_VALUE, 0, 100);
 }
 
 
