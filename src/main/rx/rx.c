@@ -98,7 +98,6 @@ rssiSource_e rssiSource;
 linkQualitySource_e linkQualitySource;
 
 static bool rxDataProcessingRequired = false;
-static bool auxiliaryProcessingRequired = false;
 
 static bool rxSignalReceived = false;
 static bool rxFlightChannelsValid = false;
@@ -507,11 +506,6 @@ static void set_link_quality(bool validFrame, timeDelta_t currentDeltaTimeUs, in
     }
 }
 
-static void setLinkQuality(bool validFrame, timeDelta_t currentDeltaTimeUs)
-{
-    set_link_quality(validFrame, currentDeltaTimeUs, 0);
-}
-
 void setLinkQualityDirect(uint16_t linkqualityValue)
 {
     set_link_quality_direct(linkqualityValue, 0);
@@ -529,22 +523,23 @@ bool rxUpdateCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
     UNUSED(currentTimeUs);
     UNUSED(currentDeltaTimeUs);
 
-    return taskUpdateRxMainInProgress() || rxDataProcessingRequired || auxiliaryProcessingRequired;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+    if (!rxRuntimeState)
+        return false;
+
+
+    return taskUpdateRxMainInProgress() || rxDataProcessingRequired || rxRuntimeState->auxiliaryProcessingRequired;
 }
 
-FAST_CODE_NOINLINE void rxFrameCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
+static void rxFrameCheckInternal(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs, int id)
 {
-    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
     bool signalReceived = false;
     bool useDataDrivenProcessing = true;
     timeDelta_t needRxSignalMaxDelayUs = DELAY_100_MS;
 
-    DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 2, MIN(2000, currentDeltaTimeUs / 100));
-
-    if (taskUpdateRxMainInProgress()) {
-        //  no need to check for new data as a packet is being processed already
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
         return;
-    }
 
     switch (rxRuntimeState->rxProvider) {
     default:
@@ -574,8 +569,8 @@ FAST_CODE_NOINLINE void rxFrameCheck(timeUs_t currentTimeUs, timeDelta_t current
             const uint8_t frameStatus = rxRuntimeState->rcFrameStatusFn(rxRuntimeState);
             DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 1, (frameStatus & RX_FRAME_FAILSAFE));
             signalReceived = (frameStatus & RX_FRAME_COMPLETE) && !(frameStatus & (RX_FRAME_FAILSAFE | RX_FRAME_DROPPED));
-            setLinkQuality(signalReceived, currentDeltaTimeUs);
-            auxiliaryProcessingRequired |= (frameStatus & RX_FRAME_PROCESSING_REQUIRED);
+            set_link_quality(signalReceived, currentDeltaTimeUs, id);
+            rxRuntimeState->auxiliaryProcessingRequired |= (frameStatus & RX_FRAME_PROCESSING_REQUIRED);
         }
 
         break;
@@ -612,6 +607,14 @@ FAST_CODE_NOINLINE void rxFrameCheck(timeUs_t currentTimeUs, timeDelta_t current
     
     DEBUG_SET(DEBUG_FAILSAFE, 1, rxSignalReceived);
     DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 0, rxSignalReceived);
+
+
+}
+
+FAST_CODE_NOINLINE void rxFrameCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
+{
+    for (int id = 0; id < RX_SERIAL_COUNT; id++)
+        rxFrameCheckInternal(currentTimeUs, currentDeltaTimeUs, id);
 }
 
 #if defined(USE_RX_PWM) || defined(USE_RX_PPM)
@@ -806,9 +809,9 @@ void detectAndApplySignalLossBehaviour(void)
 bool calculateRxChannelsAndUpdateFailsafe(timeUs_t currentTimeUs)
 {
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
-    if (auxiliaryProcessingRequired) {
+    if (rxRuntimeState->auxiliaryProcessingRequired) {
         rxRuntimeState->rcProcessFrameFn(rxRuntimeState);
-        auxiliaryProcessingRequired = false;
+        rxRuntimeState->auxiliaryProcessingRequired = false;
     }
 
     if (!rxDataProcessingRequired) {
