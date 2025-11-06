@@ -163,6 +163,9 @@ typedef struct rxRuntimeState_s {
     int16_t             rssiDbmRaw;             // range: [-130,0]
     int8_t              activeAntenna;
 #endif //USE_RX_RSSI_DBM
+#ifdef USE_ADC
+    uint32_t            rssiUpdateAt;
+#endif //USE_ADC
 #ifdef USE_RX_RSNR
     int16_t             rsnr;                   // range: [-30,20]
     int16_t             rsnrRaw;                // range: [-30,20]

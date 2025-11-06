@@ -942,17 +942,19 @@ static void updateRSSIADC(timeUs_t currentTimeUs)
 #ifndef USE_ADC
     UNUSED(currentTimeUs);
 #else
-    static uint32_t rssiUpdateAt = 0;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+    if (!rxRuntimeState)
+        return;
 
-    if ((int32_t)(currentTimeUs - rssiUpdateAt) < 0) {
+    if ((int32_t)(currentTimeUs - rxRuntimeState->rssiUpdateAt) < 0) {
         return;
     }
-    rssiUpdateAt = currentTimeUs + DELAY_20_MS;
+    rxRuntimeState->rssiUpdateAt = currentTimeUs + DELAY_20_MS;
 
     const uint16_t adcRssiSample = adcGetChannel(ADC_RSSI);
     uint16_t rssiValue = adcRssiSample / RSSI_ADC_DIVISOR;
 
-    setRssi(rssiValue, RSSI_SOURCE_ADC);
+    set_rssi_val(rssiValue, RSSI_SOURCE_ADC, 0);
 #endif
 }
 
