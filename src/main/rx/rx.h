@@ -173,6 +173,8 @@ typedef struct rxRuntimeState_s {
     uint16_t            rssiCount;
     timeDelta_t         resampleTimeUs;
     bool                auxiliaryProcessingRequired;
+    bool                rxDataProcessingRequired;
+    bool                rxSignalReceived;
 
     void                *priv;
 } rxRuntimeState_t;

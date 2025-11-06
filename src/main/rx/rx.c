@@ -76,7 +76,7 @@
 const char rcChannelLetters[] = "AERT12345678abcdefgh";
 
 
-static timeUs_t lastRssiSmoothingUs = 0;
+static timeUs_t lastRssiSmoothingUs = 0; // may use on all rx sources
 #ifdef USE_RX_RSNR
 static int16_t rsnr = CRSF_SNR_MIN;        // range: [-30,20]
 static int16_t rsnrRaw = CRSF_SNR_MIN;     // range: [-30,20]
@@ -97,9 +97,7 @@ static uint16_t uplinkTxPwrMw = 0;  //Uplink Tx power in mW
 rssiSource_e rssiSource;
 linkQualitySource_e linkQualitySource;
 
-static bool rxDataProcessingRequired = false;
 
-static bool rxSignalReceived = false;
 static bool rxFlightChannelsValid = false;
 static uint8_t rxChannelCount;
 
@@ -404,7 +402,12 @@ void rxInit(void)
 
 bool rxIsReceivingSignal(void)
 {
-    return rxSignalReceived;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+
+    if (!rxRuntimeState)
+        return false;
+
+    return rxRuntimeState->rxSignalReceived;
 }
 
 bool rxAreFlightChannelsValid(void)
@@ -528,7 +531,7 @@ bool rxUpdateCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
         return false;
 
 
-    return taskUpdateRxMainInProgress() || rxDataProcessingRequired || rxRuntimeState->auxiliaryProcessingRequired;
+    return taskUpdateRxMainInProgress() || rxRuntimeState->rxDataProcessingRequired || rxRuntimeState->auxiliaryProcessingRequired;
 }
 
 static void rxFrameCheckInternal(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs, int id)
@@ -579,36 +582,38 @@ static void rxFrameCheckInternal(timeUs_t currentTimeUs, timeDelta_t currentDelt
     if (signalReceived) {
         //  true only when a new packet arrives
         needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
-        rxSignalReceived = true; // immediately process packet data
+        rxRuntimeState->rxSignalReceived = true; // immediately process packet data
         if (useDataDrivenProcessing) {
-            rxDataProcessingRequired = true;
+            rxRuntimeState->rxDataProcessingRequired = true;
             //  process the new Rx packet when it arrives
         }
     } else {
         //  watch for next packet
         if (cmpTimeUs(currentTimeUs, needRxSignalBefore) > 0) {
             //  initial time to signalReceived failure is 100ms, then we check every 100ms
-            rxSignalReceived = false;
+            rxRuntimeState->rxSignalReceived = false;
             needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
             //  review and process rcData values every 100ms in case failsafe changed them
-            rxDataProcessingRequired = true;
+            rxRuntimeState->rxDataProcessingRequired = true;
         }
     }
 
 #if defined(USE_RX_MSP_OVERRIDE)
     if (IS_RC_MODE_ACTIVE(BOXMSPOVERRIDE) && rxConfig()->msp_override_channels_mask && rxConfig()->msp_override_failsafe) {
         if (rxMspOverrideFrameStatus() & RX_FRAME_COMPLETE) {
-            rxSignalReceived = true;
-            rxDataProcessingRequired = true;
+            rxRuntimeState->rxSignalReceived = true;
+            rxRuntimeState->rxDataProcessingRequired = true;
             needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
         }
     }
 #endif
     
-    DEBUG_SET(DEBUG_FAILSAFE, 1, rxSignalReceived);
-    DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 0, rxSignalReceived);
+    rxRuntimeState = getRxRuntimeState(0);
+    if (!rxRuntimeState)
+        return;
 
-
+    DEBUG_SET(DEBUG_FAILSAFE, 1, rxRuntimeState->rxSignalReceived);
+    DEBUG_SET(DEBUG_RX_SIGNAL_LOSS, 0, rxRuntimeState->rxSignalReceived);
 }
 
 FAST_CODE_NOINLINE void rxFrameCheck(timeUs_t currentTimeUs, timeDelta_t currentDeltaTimeUs)
@@ -724,7 +729,7 @@ void detectAndApplySignalLossBehaviour(void)
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
     const uint32_t currentTimeMs = millis();
     const bool boxFailsafeSwitchIsOn = IS_RC_MODE_ACTIVE(BOXFAILSAFE);
-    rxFlightChannelsValid = rxSignalReceived && !boxFailsafeSwitchIsOn;
+    rxFlightChannelsValid = rxRuntimeState->rxSignalReceived && !boxFailsafeSwitchIsOn;
     // rxFlightChannelsValid is false after 100ms of no packets, or as soon as use the BOXFAILSAFE switch is actioned
     // rxFlightChannelsValid is true the instant we get a good packet or the BOXFAILSAFE switch is reverted
     // can also go false with good packets but where one flight channel is bad > 300ms (PPM type receiver error)
@@ -814,11 +819,11 @@ bool calculateRxChannelsAndUpdateFailsafe(timeUs_t currentTimeUs)
         rxRuntimeState->auxiliaryProcessingRequired = false;
     }
 
-    if (!rxDataProcessingRequired) {
+    if (!rxRuntimeState->rxDataProcessingRequired) {
         return false;
     }
 
-    rxDataProcessingRequired = false;
+    rxRuntimeState->rxDataProcessingRequired = false;
 
     // only proceed when no more samples to skip and suspend period is over
     if (skipRxSamples || currentTimeUs <= suspendRxSignalUntil) {
