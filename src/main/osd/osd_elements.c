@@ -1254,10 +1254,12 @@ static void osdBackgroundHorizonSidebars(osdElementParms_t *element)
 #ifdef USE_RX_LINK_QUALITY_INFO
 static int osdGetLinkQualityID(uint8_t item)
 {
-    if ((item != OSD_LINK_QUALITY) && (item < OSD_LINK_QUALITY_X || item > OSD_LINK_QUALITY_X_LAST))
+    if (item == OSD_LINK_QUALITY)
+        return 0;
+    else if (item >= OSD_LINK_QUALITY_X && item <= OSD_LINK_QUALITY_X_LAST)
+        return item + 1 - OSD_LINK_QUALITY_X;
+    else
         return -1;
-
-    return (item == OSD_LINK_QUALITY) ? 0 : item + 1 - OSD_LINK_QUALITY_X;
 }
 
 static void osdElementLinkQuality(osdElementParms_t *element)
@@ -1546,10 +1548,12 @@ static void osdElementRemainingTimeEstimate(osdElementParms_t *element)
 
 static int osdGetRssiID(uint8_t item)
 {
-    if ((item != OSD_RSSI_VALUE) && (item < OSD_RSSI_X_VALUE || item > OSD_RSSI_X_VALUE_LAST))
+    if (item == OSD_RSSI_VALUE)
+        return 0;
+    else if (item >= OSD_RSSI_X_VALUE && item <= OSD_RSSI_X_VALUE_LAST)
+        return item + 1 - OSD_RSSI_X_VALUE;
+    else
         return -1;
-
-    return (item == OSD_RSSI_VALUE) ? 0 : item + 1 - OSD_RSSI_X_VALUE;
 }
 
 static void osdElementRssi(osdElementParms_t *element)
@@ -1583,10 +1587,12 @@ static void osdElementRtcTime(osdElementParms_t *element)
 #ifdef USE_RX_RSSI_DBM
 static int osdGetRssiDbmID(uint8_t item)
 {
-    if ((item != OSD_RSSI_DBM_VALUE) && (item < OSD_RSSI_X_DBM_VALUE || item > OSD_RSSI_X_DBM_VALUE_LAST))
+    if (item == OSD_RSSI_DBM_VALUE)
+        return 0;
+    else if (item >= OSD_RSSI_X_DBM_VALUE && item <= OSD_RSSI_X_DBM_VALUE_LAST)
+        return item + 1 - OSD_RSSI_X_DBM_VALUE;
+    else
         return -1;
-
-    return (item == OSD_RSSI_DBM_VALUE) ? 0 : item + 1 - OSD_RSSI_X_DBM_VALUE;
 }
 
 static void osdElementRssiDbm(osdElementParms_t *element)
