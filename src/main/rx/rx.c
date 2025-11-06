@@ -96,8 +96,6 @@ static uint16_t uplinkTxPwrMw = 0;  //Uplink Tx power in mW
 rssiSource_e rssiSource;
 linkQualitySource_e linkQualitySource;
 
-static uint8_t rxChannelCount;
-
 
 static float rcRaw[MAX_SUPPORTED_RC_CHANNEL_COUNT];     // last received raw value, as it comes
 uint32_t validRxSignalTimeout[MAX_SUPPORTED_RC_CHANNEL_COUNT];
@@ -382,7 +380,7 @@ static void rxInitID(int id)
     pt1FilterInit(&rsnrFilter, k);
 #endif //USE_RX_RSNR
 
-    rxChannelCount = MIN(rxConfig()->max_aux_channel + NON_AUX_CHANNEL_COUNT, rxRuntimeState->channelCount);
+    rxRuntimeState->rxChannelCount = MIN(rxConfig()->max_aux_channel + NON_AUX_CHANNEL_COUNT, rxRuntimeState->channelCount);
 }
 
 void rxInit(void)
@@ -700,7 +698,7 @@ STATIC_UNIT_TESTED float applyRxChannelRangeConfiguraton(float sample, const rxC
 static void readRxChannelsApplyRanges(void)
 {
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
-    for (int channel = 0; channel < rxChannelCount; channel++) {
+    for (int channel = 0; channel < rxRuntimeState->rxChannelCount; channel++) {
 
         const uint8_t rawChannel = channel < RX_MAPPABLE_CHANNEL_COUNT ? rxConfig()->rcmap[channel] : channel;
 
@@ -734,7 +732,7 @@ void detectAndApplySignalLossBehaviour(void)
     // rxFlightChannelsValid is true the instant we get a good packet or the BOXFAILSAFE switch is reverted
     // can also go false with good packets but where one flight channel is bad > 300ms (PPM type receiver error)
 
-    for (int channel = 0; channel < rxChannelCount; channel++) {
+    for (int channel = 0; channel < rxRuntimeState->rxChannelCount; channel++) {
         float sample = rcRaw[channel]; // sample has latest RC value, rcData has last 'accepted valid' value
         const bool thisChannelValid = rxRuntimeState->rxFlightChannelsValid && isPulseValid(sample);
         // if the whole packet is bad, or BOXFAILSAFE switch is actioned, consider all channels bad
