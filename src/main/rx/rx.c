@@ -98,7 +98,6 @@ rssiSource_e rssiSource;
 linkQualitySource_e linkQualitySource;
 
 
-static bool rxFlightChannelsValid = false;
 static uint8_t rxChannelCount;
 
 static timeUs_t needRxSignalBefore = 0;
@@ -406,13 +405,16 @@ bool rxIsReceivingSignal(void)
 
     if (!rxRuntimeState)
         return false;
-
     return rxRuntimeState->rxSignalReceived;
 }
 
 bool rxAreFlightChannelsValid(void)
 {
-    return rxFlightChannelsValid;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+
+    if (!rxRuntimeState)
+        return false;
+    return rxRuntimeState->rxFlightChannelsValid;
 }
 
 void suspendRxSignal(void)
@@ -729,14 +731,14 @@ void detectAndApplySignalLossBehaviour(void)
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
     const uint32_t currentTimeMs = millis();
     const bool boxFailsafeSwitchIsOn = IS_RC_MODE_ACTIVE(BOXFAILSAFE);
-    rxFlightChannelsValid = rxRuntimeState->rxSignalReceived && !boxFailsafeSwitchIsOn;
+    rxRuntimeState->rxFlightChannelsValid = rxRuntimeState->rxSignalReceived && !boxFailsafeSwitchIsOn;
     // rxFlightChannelsValid is false after 100ms of no packets, or as soon as use the BOXFAILSAFE switch is actioned
     // rxFlightChannelsValid is true the instant we get a good packet or the BOXFAILSAFE switch is reverted
     // can also go false with good packets but where one flight channel is bad > 300ms (PPM type receiver error)
 
     for (int channel = 0; channel < rxChannelCount; channel++) {
         float sample = rcRaw[channel]; // sample has latest RC value, rcData has last 'accepted valid' value
-        const bool thisChannelValid = rxFlightChannelsValid && isPulseValid(sample);
+        const bool thisChannelValid = rxRuntimeState->rxFlightChannelsValid && isPulseValid(sample);
         // if the whole packet is bad, or BOXFAILSAFE switch is actioned, consider all channels bad
         if (thisChannelValid) {
             //  reset the invalid pulse period timer for every good channel
@@ -775,7 +777,7 @@ void detectAndApplySignalLossBehaviour(void)
                 } else {
                     // remaining Stage 1 failsafe period after 300ms
                     if (channel < NON_AUX_CHANNEL_COUNT) {
-                        rxFlightChannelsValid = false;
+                        rxRuntimeState->rxFlightChannelsValid = false;
                         //  declare signal lost after 300ms of any one bad flight channel
                     }
                     sample = getRxfailValue(channel);
@@ -800,7 +802,7 @@ void detectAndApplySignalLossBehaviour(void)
         }
     }
 
-    if (rxFlightChannelsValid) {
+    if (rxRuntimeState->rxFlightChannelsValid) {
         failsafeOnValidDataReceived();
         //  --> start the timer to exit stage 2 failsafe 100ms after losing all packets or the BOXFAILSAFE switch is actioned
     } else {

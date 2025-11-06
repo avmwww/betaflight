@@ -175,6 +175,7 @@ typedef struct rxRuntimeState_s {
     bool                auxiliaryProcessingRequired;
     bool                rxDataProcessingRequired;
     bool                rxSignalReceived;
+    bool                rxFlightChannelsValid;
 
     void                *priv;
 } rxRuntimeState_t;
