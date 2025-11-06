@@ -98,7 +98,6 @@ linkQualitySource_e linkQualitySource;
 
 
 static float rcRaw[MAX_SUPPORTED_RC_CHANNEL_COUNT];     // last received raw value, as it comes
-uint32_t validRxSignalTimeout[MAX_SUPPORTED_RC_CHANNEL_COUNT];
 
 #define MAX_INVALID_PULSE_TIME_MS 300                   // hold time in milliseconds after bad channel or Rx link loss
 // will not be actioned until the nearest multiple of 100ms
@@ -287,7 +286,7 @@ static void rxInitID(int id)
     uint32_t now = millis();
     for (int i = 0; i < MAX_SUPPORTED_RC_CHANNEL_COUNT; i++) {
         rxRuntimeState->rcData[i] = rxConfig()->midrc;
-        validRxSignalTimeout[i] = now + MAX_INVALID_PULSE_TIME_MS;
+        rxRuntimeState->validRxSignalTimeout[i] = now + MAX_INVALID_PULSE_TIME_MS;
     }
 
     rxRuntimeState->rcData[THROTTLE] = (featureIsEnabled(FEATURE_3D)) ? rxConfig()->midrc : rxConfig()->rx_min_usec;
@@ -738,7 +737,7 @@ void detectAndApplySignalLossBehaviour(void)
         // if the whole packet is bad, or BOXFAILSAFE switch is actioned, consider all channels bad
         if (thisChannelValid) {
             //  reset the invalid pulse period timer for every good channel
-            validRxSignalTimeout[channel] = currentTimeMs + MAX_INVALID_PULSE_TIME_MS;
+            rxRuntimeState->validRxSignalTimeout[channel] = currentTimeMs + MAX_INVALID_PULSE_TIME_MS;
         }
 
         if (failsafeIsActive()) {
@@ -766,7 +765,7 @@ void detectAndApplySignalLossBehaviour(void)
                 //  set channels to Stage 1 values immediately failsafe switch is activated
             } else if (!thisChannelValid) {
                 // everything is normal but this channel was invalid
-                if (cmp32(currentTimeMs, validRxSignalTimeout[channel]) < 0) {
+                if (cmp32(currentTimeMs, rxRuntimeState->validRxSignalTimeout[channel]) < 0) {
                     // first 300ms of Stage 1 failsafe
                     sample = rxRuntimeState->rcData[channel];
                     //  HOLD last valid value on bad channel/s for MAX_INVALID_PULSE_TIME_MS (300ms)
