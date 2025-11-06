@@ -178,6 +178,7 @@ typedef struct rxRuntimeState_s {
     bool                rxFlightChannelsValid;
     timeUs_t            needRxSignalBefore;
     timeUs_t            suspendRxSignalUntil;
+    uint8_t             rcSampleIndex;
 
     void                *priv;
 } rxRuntimeState_t;

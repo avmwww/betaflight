@@ -113,7 +113,6 @@ uint32_t validRxSignalTimeout[MAX_SUPPORTED_RC_CHANNEL_COUNT];
 #define SKIP_RC_SAMPLES_ON_RESUME  2                    // flush 2 samples to drop wrong measurements (timing independent)
 
 static rxRuntimeState_t rxRuntimeStates[RX_SERIAL_COUNT];
-static uint8_t rcSampleIndex = 0;
 
 rxRuntimeState_t *getRxRuntimeState(int id)
 {
@@ -286,7 +285,7 @@ static void rxInitID(int id)
     rxRuntimeState->lastRcFrameTimeUs = 0;
     rxRuntimeState->rssiDbm = CRSF_RSSI_MIN;
     rxRuntimeState->rssiDbmRaw = CRSF_RSSI_MIN;
-    rcSampleIndex = 0;
+    rxRuntimeState->rcSampleIndex = 0;
 
     uint32_t now = millis();
     for (int i = 0; i < MAX_SUPPORTED_RC_CHANNEL_COUNT; i++) {
@@ -627,14 +626,18 @@ static uint16_t calculateChannelMovingAverage(uint8_t chan, uint16_t sample)
     static int16_t rcDataMean[MAX_SUPPORTED_RX_PARALLEL_PWM_OR_PPM_CHANNEL_COUNT];
     static bool rxSamplesCollected = false;
 
-    const uint8_t currentSampleIndex = rcSampleIndex % PPM_AND_PWM_SAMPLE_COUNT;
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+    if (!rxRuntimeState)
+        return 0;
+
+    const uint8_t currentSampleIndex = rxRuntimeState->rcSampleIndex % PPM_AND_PWM_SAMPLE_COUNT;
 
     // update the recent samples and compute the average of them
     rcSamples[chan][currentSampleIndex] = sample;
 
     // avoid returning an incorrect average which would otherwise occur before enough samples
     if (!rxSamplesCollected) {
-        if (rcSampleIndex < PPM_AND_PWM_SAMPLE_COUNT) {
+        if (rxRuntimeState->rcSampleIndex < PPM_AND_PWM_SAMPLE_COUNT) {
             return sample;
         }
         rxSamplesCollected = true;
@@ -835,7 +838,7 @@ bool calculateRxChannelsAndUpdateFailsafe(timeUs_t currentTimeUs)
     readRxChannelsApplyRanges();            // returns rcRaw
     detectAndApplySignalLossBehaviour();    // returns rcData
 
-    rcSampleIndex++;
+    rxRuntimeState->rcSampleIndex++;
 
     return true;
 }
