@@ -75,7 +75,6 @@
 
 const char rcChannelLetters[] = "AERT12345678abcdefgh";
 
-
 static timeUs_t lastRssiSmoothingUs = 0; // may use on all rx sources
 #ifdef USE_RX_RSNR
 static int16_t rsnr = CRSF_SNR_MIN;        // range: [-30,20]
@@ -100,7 +99,6 @@ linkQualitySource_e linkQualitySource;
 
 static uint8_t rxChannelCount;
 
-static timeUs_t needRxSignalBefore = 0;
 static timeUs_t suspendRxSignalUntil = 0;
 static uint8_t  skipRxSamples = 0;
 
@@ -583,7 +581,7 @@ static void rxFrameCheckInternal(timeUs_t currentTimeUs, timeDelta_t currentDelt
 
     if (signalReceived) {
         //  true only when a new packet arrives
-        needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
+        rxRuntimeState->needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
         rxRuntimeState->rxSignalReceived = true; // immediately process packet data
         if (useDataDrivenProcessing) {
             rxRuntimeState->rxDataProcessingRequired = true;
@@ -591,10 +589,10 @@ static void rxFrameCheckInternal(timeUs_t currentTimeUs, timeDelta_t currentDelt
         }
     } else {
         //  watch for next packet
-        if (cmpTimeUs(currentTimeUs, needRxSignalBefore) > 0) {
+        if (cmpTimeUs(currentTimeUs, rxRuntimeState->needRxSignalBefore) > 0) {
             //  initial time to signalReceived failure is 100ms, then we check every 100ms
             rxRuntimeState->rxSignalReceived = false;
-            needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
+            rxRuntimeState->needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
             //  review and process rcData values every 100ms in case failsafe changed them
             rxRuntimeState->rxDataProcessingRequired = true;
         }
@@ -605,7 +603,7 @@ static void rxFrameCheckInternal(timeUs_t currentTimeUs, timeDelta_t currentDelt
         if (rxMspOverrideFrameStatus() & RX_FRAME_COMPLETE) {
             rxRuntimeState->rxSignalReceived = true;
             rxRuntimeState->rxDataProcessingRequired = true;
-            needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
+            rxRuntimeState->needRxSignalBefore = currentTimeUs + needRxSignalMaxDelayUs;
         }
     }
 #endif
