@@ -1252,28 +1252,30 @@ static void osdBackgroundHorizonSidebars(osdElementParms_t *element)
 }
 
 #ifdef USE_RX_LINK_QUALITY_INFO
+static int osdGetLinkQualityID(uint8_t item)
+{
+    if ((item != OSD_LINK_QUALITY) && (item < OSD_LINK_QUALITY_X || item > OSD_LINK_QUALITY_X_LAST))
+        return -1;
+
+    return (item == OSD_LINK_QUALITY) ? 0 : item + 1 - OSD_LINK_QUALITY_X;
+}
+
 static void osdElementLinkQuality(osdElementParms_t *element)
 {
-    uint16_t osdLinkQualityPercent = 0, osdLinkQuality = 0;
-    uint8_t osdRfMode = 0;
-    uint8_t item = element->item;
+    uint16_t osdLinkQuality = 0;
+    int id = osdGetLinkQualityID(element->item);
 
-    if (item == OSD_LINK_QUALITY) {
-        osdLinkQualityPercent = rxGetLinkQualityPercent();
-        osdLinkQuality = rxGetLinkQuality();
-        osdRfMode = rxGetRfMode();
-    } else if (item >= OSD_LINK_QUALITY_X && item <= OSD_LINK_QUALITY_X_LAST) {
-        osdLinkQualityPercent = rx_get_link_quality_percent(item + 1 - OSD_LINK_QUALITY_X);
-        osdLinkQuality = rx_get_link_quality(item + 1 - OSD_LINK_QUALITY_X);
-        osdRfMode = rx_get_rfmode(item + 1 - OSD_LINK_QUALITY_X);
-    }
+    if (id < 0)
+        return;
 
-    if (osdLinkQualityPercent < osdConfig()->link_quality_alarm) {
+    osdLinkQuality = rx_get_link_quality(id);
+
+    if (rx_get_link_quality_percent(id) < osdConfig()->link_quality_alarm) {
         element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
     }
 
     if (linkQualitySource == LQ_SOURCE_RX_PROTOCOL_CRSF) { // 0-99
-        tfp_sprintf(element->buff, "%c%1d:%2d", SYM_LINK_QUALITY, osdRfMode, osdLinkQuality);
+        tfp_sprintf(element->buff, "%c%1d:%2d", SYM_LINK_QUALITY, rx_get_rfmode(id), osdLinkQuality);
     } else if (linkQualitySource == LQ_SOURCE_RX_PROTOCOL_GHST) { // 0-100
         tfp_sprintf(element->buff, "%c%2d", SYM_LINK_QUALITY, osdLinkQuality);
     } else { // 0-9
@@ -1542,30 +1544,30 @@ static void osdElementRemainingTimeEstimate(osdElementParms_t *element)
     }
 }
 
+static int osdGetRssiID(uint8_t item)
+{
+    if ((item != OSD_RSSI_VALUE) && (item < OSD_RSSI_X_VALUE || item > OSD_RSSI_X_VALUE_LAST))
+        return -1;
+
+    return (item == OSD_RSSI_VALUE) ? 0 : item + 1 - OSD_RSSI_X_VALUE;
+}
+
 static void osdElementRssi(osdElementParms_t *element)
 {
-    uint8_t item = element->item;
     uint16_t osdRssi = 0;
+    int id = osdGetRssiID(element->item);
 
-    if (item == OSD_RSSI_VALUE)
-        osdRssi = getRssi();
-    else if (item >= OSD_RSSI_X_VALUE && item <= OSD_RSSI_X_VALUE_LAST)
-        osdRssi = get_rssi_val(item + 1 - OSD_RSSI_X_VALUE);
+    if (id < 0)
+        return;
 
-    osdRssi = osdRssi * 100 / 1024; // change range
+    osdRssi = get_rssi_val(id) * 100 / 1024; // change range;
 
     if (osdRssi >= 100) {
         osdRssi = 99;
     }
 
-    if (item == OSD_RSSI_VALUE) {
-        if (getRssiPercent() < osdConfig()->rssi_alarm) {
-            element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
-        }
-    } else if (item >= OSD_RSSI_X_VALUE && item <= OSD_RSSI_X_VALUE_LAST) {
-        if (get_rssi_val_percent(item + 1 - OSD_RSSI_X_VALUE) < osdConfig()->rssi_alarm) {
-            element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
-        }
+    if (get_rssi_val_percent(id) < osdConfig()->rssi_alarm) {
+        element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
     }
 
     tfp_sprintf(element->buff, "%c%2d", SYM_RSSI, osdRssi);
@@ -1579,18 +1581,25 @@ static void osdElementRtcTime(osdElementParms_t *element)
 #endif // USE_RTC_TIME
 
 #ifdef USE_RX_RSSI_DBM
+static int osdGetRssiDbmID(uint8_t item)
+{
+    if ((item != OSD_RSSI_DBM_VALUE) && (item < OSD_RSSI_X_DBM_VALUE || item > OSD_RSSI_X_DBM_VALUE_LAST))
+        return -1;
+
+    return (item == OSD_RSSI_DBM_VALUE) ? 0 : item + 1 - OSD_RSSI_X_DBM_VALUE;
+}
+
 static void osdElementRssiDbm(osdElementParms_t *element)
 {
-    uint8_t item = element->item;
     const int8_t antenna = getActiveAntenna();
-    int16_t osdRssiDbm = 0;
     static bool diversity = false;
+    int id = osdGetRssiDbmID(element->item);
+    uint16_t osdRssiDbm;
 
-    if (item == OSD_RSSI_DBM_VALUE)
-        osdRssiDbm = getRssiDbm();
-    else if (item >= OSD_RSSI_X_DBM_VALUE && item <= OSD_RSSI_X_DBM_VALUE_LAST)
-        osdRssiDbm = get_rssi_dbm_val(item + 1 - OSD_RSSI_X_DBM_VALUE);
+    if (id < 0)
+        return;
 
+    osdRssiDbm = get_rssi_dbm_val(id);
     if (osdRssiDbm < osdConfig()->rssi_dbm_alarm) {
         element->attr = DISPLAYPORT_SEVERITY_CRITICAL;
     }
