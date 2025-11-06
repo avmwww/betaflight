@@ -150,6 +150,8 @@ typedef struct rxRuntimeState_s {
     uint16_t            *channelData;
     void                *frameData;
     timeUs_t            lastRcFrameTimeUs;
+    timeUs_t            previousFrameTimeUs;
+    timeDelta_t         frameTimeDeltaUs;
     float               rcData[MAX_SUPPORTED_RC_CHANNEL_COUNT];           // scaled, modified, checked and constrained values
     pt1Filter_t         rssiFilter;
     pt1Filter_t         frameErrFilter;

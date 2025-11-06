@@ -1250,22 +1250,20 @@ bool isRssiConfigured(void)
 timeDelta_t rxGetFrameDelta(timeDelta_t *frameAgeUs)
 {
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
-    static timeUs_t previousFrameTimeUs = 0;
-    static timeDelta_t frameTimeDeltaUs = 0;
 
     if (rxRuntimeState->rcFrameTimeUsFn) {
         const timeUs_t frameTimeUs = rxRuntimeState->rcFrameTimeUsFn();
 
         *frameAgeUs = cmpTimeUs(micros(), frameTimeUs);
 
-        const timeDelta_t deltaUs = cmpTimeUs(frameTimeUs, previousFrameTimeUs);
+        const timeDelta_t deltaUs = cmpTimeUs(frameTimeUs, rxRuntimeState->previousFrameTimeUs);
         if (deltaUs) {
-            frameTimeDeltaUs = deltaUs;
-            previousFrameTimeUs = frameTimeUs;
+            rxRuntimeState->frameTimeDeltaUs = deltaUs;
+            rxRuntimeState->previousFrameTimeUs = frameTimeUs;
         }
     }
 
-    return frameTimeDeltaUs;
+    return rxRuntimeState->frameTimeDeltaUs;
 }
 
 timeUs_t rxFrameTimeUs(void)
