@@ -161,6 +161,11 @@ typedef struct rxRuntimeState_s {
     int16_t             rssiDbmRaw;             // range: [-130,0]
     int8_t              activeAntenna;
 #endif //USE_RX_RSSI_DBM
+#ifdef USE_RX_RSNR
+    int16_t             rsnr;                   // range: [-30,20]
+    int16_t             rsnrRaw;                // range: [-30,20]
+    pt1Filter_t         rsnrFilter;
+#endif //USE_RX_RSNR
 #ifdef USE_RX_LINK_QUALITY_INFO
 #define LINK_QUALITY_SAMPLE_COUNT 16
     uint16_t            linkQuality;
@@ -259,6 +264,9 @@ void setActiveAntenna(int8_t antenna);
 #endif //USE_RX_RSSI_DBM
 
 #ifdef USE_RX_RSNR
+int16_t get_rsnr(int id);
+void set_rsnr(int16_t rsnrValue, int id);
+void set_rsnr_direct(int16_t newRsnr, int id);
 int16_t getRsnr(void);
 void setRsnr(int16_t newRsnr);
 void setRsnrDirect(int16_t newRsnr);

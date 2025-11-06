@@ -76,14 +76,7 @@
 const char rcChannelLetters[] = "AERT12345678abcdefgh";
 
 static timeUs_t lastRssiSmoothingUs = 0; // may use on all rx sources
-#ifdef USE_RX_RSNR
-static int16_t rsnr = CRSF_SNR_MIN;        // range: [-30,20]
-static int16_t rsnrRaw = CRSF_SNR_MIN;     // range: [-30,20]
-#endif //USE_RX_RSNR
 
-#ifdef USE_RX_RSNR
-static pt1Filter_t rsnrFilter;
-#endif //USE_RX_RSNR
 
 #ifdef USE_RX_LINK_UPLINK_POWER
 static uint16_t uplinkTxPwrMw = 0;  //Uplink Tx power in mW
@@ -277,6 +270,11 @@ static void rxInitID(int id)
     rxRuntimeState->lastRcFrameTimeUs = 0;
     rxRuntimeState->rssiDbm = CRSF_RSSI_MIN;
     rxRuntimeState->rssiDbmRaw = CRSF_RSSI_MIN;
+#ifdef USE_RX_RSNR
+    rxRuntimeState->rsnr = CRSF_SNR_MIN;
+    rxRuntimeState->rsnrRaw = CRSF_SNR_MIN;
+#endif //USE_RX_RSNR
+
     rxRuntimeState->rcSampleIndex = 0;
 
     uint32_t now = millis();
@@ -372,7 +370,7 @@ static void rxInitID(int id)
 #endif //USE_RX_RSSI_DBM
 
 #ifdef USE_RX_RSNR
-    pt1FilterInit(&rsnrFilter, k);
+    pt1FilterInit(&rxRuntimeState->rsnrFilter, k);
 #endif //USE_RX_RSNR
 
     rxRuntimeState->rxChannelCount = MIN(rxConfig()->max_aux_channel + NON_AUX_CHANNEL_COUNT, rxRuntimeState->channelCount);
@@ -984,6 +982,21 @@ static void update_rssi_dbm_val(float k2)
 }
 #endif
 
+#ifdef USE_RX_RSNR
+static void update_rsnr_val(float k2)
+{
+    rxRuntimeState_t *rxRuntimeState;
+    int id = 0;
+
+    while ((rxRuntimeState = getRxRuntimeState(id++)) != NULL) {
+            if (rxRuntimeState->rsnr != rxRuntimeState->rsnrRaw) {
+                pt1FilterUpdateCutoff(&rxRuntimeState->rsnrFilter, k2);
+                rxRuntimeState->rsnr = pt1FilterApply(&rxRuntimeState->rsnrFilter, rxRuntimeState->rsnrRaw);
+            }
+    }
+}
+#endif //USE_RX_RSNR
+
 void updateRSSI(timeUs_t currentTimeUs)
 {
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
@@ -1020,10 +1033,7 @@ void updateRSSI(timeUs_t currentTimeUs)
 #endif //USE_RX_RSSI_DBM
 
 #ifdef USE_RX_RSNR
-            if (rsnr != rsnrRaw) {
-                pt1FilterUpdateCutoff(&rsnrFilter, k2);
-                rsnr = pt1FilterApply(&rsnrFilter, rsnrRaw);
-            }
+            update_rsnr_val(k2);
 #endif //USE_RX_RSNR
 
             lastRssiSmoothingUs = currentTimeUs;
@@ -1125,20 +1135,44 @@ void setActiveAntenna(int8_t antenna)
 #endif //USE_RX_RSSI_DBM
 
 #ifdef USE_RX_RSNR
+int16_t get_rsnr(int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return 0;
+    return rxRuntimeState->rsnr;
+}
+
+void set_rsnr(int16_t rsnrValue, int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+    rxRuntimeState->rsnrRaw = rsnrValue;
+}
+
+void set_rsnr_direct(int16_t newRsnr, int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+    rxRuntimeState->rsnr = newRsnr;
+    rxRuntimeState->rsnrRaw = newRsnr;
+}
+
 int16_t getRsnr(void)
 {
-    return rsnr;
+    return get_rsnr(0);
 }
 
 void setRsnr(int16_t rsnrValue)
 {
-    rsnrRaw = rsnrValue;
+    set_rsnr(rsnrValue, 0);
 }
 
 void setRsnrDirect(int16_t newRsnr)
 {
-    rsnr = newRsnr;
-    rsnrRaw = newRsnr;
+    set_rsnr_direct(newRsnr, 0);
 }
 #endif //USE_RX_RSNR
 
