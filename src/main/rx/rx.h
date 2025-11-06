@@ -179,6 +179,7 @@ typedef struct rxRuntimeState_s {
     timeUs_t            needRxSignalBefore;
     timeUs_t            suspendRxSignalUntil;
     uint8_t             rcSampleIndex;
+    uint8_t             skipRxSamples;
 
     void                *priv;
 } rxRuntimeState_t;
