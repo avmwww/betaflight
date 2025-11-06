@@ -169,6 +169,7 @@ typedef struct rxRuntimeState_s {
     uint8_t             sampleIndex;
     uint16_t            sum;
 #endif
+    timeUs_t            lastMspRssiUpdateUs;
     uint16_t            rssiSum;
     uint16_t            rssiCount;
     timeDelta_t         resampleTimeUs;

@@ -80,7 +80,6 @@ static timeUs_t lastRssiSmoothingUs = 0; // may use on all rx sources
 static int16_t rsnr = CRSF_SNR_MIN;        // range: [-30,20]
 static int16_t rsnrRaw = CRSF_SNR_MIN;     // range: [-30,20]
 #endif //USE_RX_RSNR
-static timeUs_t lastMspRssiUpdateUs = 0;
 
 #ifdef USE_RX_RSNR
 static pt1Filter_t rsnrFilter;
@@ -922,7 +921,7 @@ void setRssiMsp(uint8_t newMspRssi)
             return;
 
         rxRuntimeState->rssi = ((uint16_t)newMspRssi) << 2;
-        lastMspRssiUpdateUs = micros();
+        rxRuntimeState->lastMspRssiUpdateUs = micros();
     }
 }
 
@@ -987,6 +986,8 @@ static void update_rssi_dbm_val(float k2)
 
 void updateRSSI(timeUs_t currentTimeUs)
 {
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+
     switch (rssiSource) {
     case RSSI_SOURCE_RX_CHANNEL:
         updateRSSIPWM();
@@ -995,8 +996,7 @@ void updateRSSI(timeUs_t currentTimeUs)
         updateRSSIADC(currentTimeUs);
         break;
     case RSSI_SOURCE_MSP:
-        if (cmpTimeUs(micros(), lastMspRssiUpdateUs) > DELAY_1500_MS) {  // 1.5s
-            rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+        if (cmpTimeUs(micros(), rxRuntimeState->lastMspRssiUpdateUs) > DELAY_1500_MS) {  // 1.5s
             if (rxRuntimeState)
                 rxRuntimeState->rssi = 0;
         }
