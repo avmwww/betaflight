@@ -174,6 +174,9 @@ typedef struct rxRuntimeState_s {
     uint8_t             sampleIndex;
     uint16_t            sum;
 #endif
+#ifdef USE_RX_LINK_UPLINK_POWER
+    uint16_t            uplinkTxPwrMw;  //Uplink Tx power in mW
+#endif
     timeUs_t            lastMspRssiUpdateUs;
     uint16_t            rssiSum;
     uint16_t            rssiCount;
@@ -277,6 +280,8 @@ void rx_set_rfmode(uint8_t rfModeValue, int id);
 void rxSetRfMode(uint8_t rfModeValue);
 uint8_t rxGetRfMode(void);
 
+void rx_setup_link_tx_pwr_mw(uint16_t uplinkTxPwrMwValue, int id);
+uint16_t rx_get_uplink_tx_pwr_mw(int id);
 void rxSetUplinkTxPwrMw(uint16_t uplinkTxPwrMwValue);
 uint16_t rxGetUplinkTxPwrMw(void);
 

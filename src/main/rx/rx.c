@@ -77,11 +77,6 @@ const char rcChannelLetters[] = "AERT12345678abcdefgh";
 
 static timeUs_t lastRssiSmoothingUs = 0; // may use on all rx sources
 
-
-#ifdef USE_RX_LINK_UPLINK_POWER
-static uint16_t uplinkTxPwrMw = 0;  //Uplink Tx power in mW
-#endif
-
 #define RSSI_ADC_DIVISOR (4096 / 1024)
 #define RSSI_OFFSET_SCALING (1024 / 100.0f)
 
@@ -502,9 +497,18 @@ void setLinkQualityDirect(uint16_t linkqualityValue)
 }
 
 #ifdef USE_RX_LINK_UPLINK_POWER
+void rx_setup_link_tx_pwr_mw(uint16_t uplinkTxPwrMwValue, int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return;
+
+    rxRuntimeState->uplinkTxPwrMw = uplinkTxPwrMwValue;
+}
+
 void rxSetUplinkTxPwrMw(uint16_t uplinkTxPwrMwValue)
 {
-    uplinkTxPwrMw = uplinkTxPwrMwValue;
+    rx_setup_link_tx_pwr_mw(uplinkTxPwrMwValue, 0);
 }
 #endif
 
@@ -1223,9 +1227,18 @@ uint16_t rxGetLinkQualityPercent(void)
 #endif
 
 #ifdef USE_RX_LINK_UPLINK_POWER
+uint16_t rx_get_uplink_tx_pwr_mw(int id)
+{
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    if (!rxRuntimeState)
+        return 0;
+
+    return rxRuntimeState->uplinkTxPwrMw;
+}
+
 uint16_t rxGetUplinkTxPwrMw(void)
 {
-    return uplinkTxPwrMw;
+    return rx_get_uplink_tx_pwr_mw(0);
 }
 #endif
 
