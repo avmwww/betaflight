@@ -96,10 +96,8 @@ static uint16_t uplinkTxPwrMw = 0;  //Uplink Tx power in mW
 rssiSource_e rssiSource;
 linkQualitySource_e linkQualitySource;
 
-
 static uint8_t rxChannelCount;
 
-static timeUs_t suspendRxSignalUntil = 0;
 static uint8_t  skipRxSamples = 0;
 
 static float rcRaw[MAX_SUPPORTED_RC_CHANNEL_COUNT];     // last received raw value, as it comes
@@ -420,7 +418,7 @@ void suspendRxSignal(void)
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
 #if defined(USE_RX_PWM) || defined(USE_RX_PPM)
     if (rxRuntimeState->rxProvider == RX_PROVIDER_PARALLEL_PWM || rxRuntimeState->rxProvider == RX_PROVIDER_PPM) {
-        suspendRxSignalUntil = micros() + DELAY_1500_MS;  // 1.5s
+        rxRuntimeState->suspendRxSignalUntil = micros() + DELAY_1500_MS;  // 1.5s
         skipRxSamples = SKIP_RC_SAMPLES_ON_RESUME;
     }
 #endif
@@ -432,7 +430,7 @@ void resumeRxSignal(void)
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
 #if defined(USE_RX_PWM) || defined(USE_RX_PPM)
     if (rxRuntimeState->rxProvider == RX_PROVIDER_PARALLEL_PWM || rxRuntimeState->rxProvider == RX_PROVIDER_PPM) {
-        suspendRxSignalUntil = micros();
+        rxRuntimeState->suspendRxSignalUntil = micros();
         skipRxSamples = SKIP_RC_SAMPLES_ON_RESUME;
     }
 #endif
@@ -826,8 +824,8 @@ bool calculateRxChannelsAndUpdateFailsafe(timeUs_t currentTimeUs)
     rxRuntimeState->rxDataProcessingRequired = false;
 
     // only proceed when no more samples to skip and suspend period is over
-    if (skipRxSamples || currentTimeUs <= suspendRxSignalUntil) {
-        if (currentTimeUs > suspendRxSignalUntil) {
+    if (skipRxSamples || currentTimeUs <= rxRuntimeState->suspendRxSignalUntil) {
+        if (currentTimeUs > rxRuntimeState->suspendRxSignalUntil) {
             skipRxSamples--;
         }
 
