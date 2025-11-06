@@ -182,6 +182,7 @@ typedef struct rxRuntimeState_s {
     uint8_t             skipRxSamples;
     uint8_t             rxChannelCount;
     uint32_t            validRxSignalTimeout[MAX_SUPPORTED_RC_CHANNEL_COUNT];
+    float               rcRaw[MAX_SUPPORTED_RC_CHANNEL_COUNT];     // last received raw value, as it comes
 
     void                *priv;
 } rxRuntimeState_t;

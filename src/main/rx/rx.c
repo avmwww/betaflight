@@ -96,9 +96,6 @@ static uint16_t uplinkTxPwrMw = 0;  //Uplink Tx power in mW
 rssiSource_e rssiSource;
 linkQualitySource_e linkQualitySource;
 
-
-static float rcRaw[MAX_SUPPORTED_RC_CHANNEL_COUNT];     // last received raw value, as it comes
-
 #define MAX_INVALID_PULSE_TIME_MS 300                   // hold time in milliseconds after bad channel or Rx link loss
 // will not be actioned until the nearest multiple of 100ms
 #define PPM_AND_PWM_SAMPLE_COUNT 3
@@ -651,6 +648,7 @@ static uint16_t getRxfailValue(uint8_t channel)
 {
     const rxFailsafeChannelConfig_t *channelFailsafeConfig = rxFailsafeChannelConfigs(channel);
     const bool boxFailsafeSwitchIsOn = IS_RC_MODE_ACTIVE(BOXFAILSAFE);
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
 
     switch (channelFailsafeConfig->mode) {
     case RX_FAILSAFE_MODE_AUTO:
@@ -672,9 +670,8 @@ static uint16_t getRxfailValue(uint8_t channel)
     case RX_FAILSAFE_MODE_INVALID:
     case RX_FAILSAFE_MODE_HOLD:
         if (boxFailsafeSwitchIsOn) {
-            return rcRaw[channel]; // current values are allowed through on held channels with switch induced failsafe
+            return rxRuntimeState->rcRaw[channel]; // current values are allowed through on held channels with switch induced failsafe
         } else {
-            rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
             return rxRuntimeState->rcData[channel]; // last good value
         }
     case RX_FAILSAFE_MODE_SET:
@@ -717,7 +714,7 @@ static void readRxChannelsApplyRanges(void)
             sample = applyRxChannelRangeConfiguraton(sample, rxChannelRangeConfigs(channel));
         }
 
-        rcRaw[channel] = sample;
+        rxRuntimeState->rcRaw[channel] = sample;
     }
 }
 
@@ -732,7 +729,7 @@ void detectAndApplySignalLossBehaviour(void)
     // can also go false with good packets but where one flight channel is bad > 300ms (PPM type receiver error)
 
     for (int channel = 0; channel < rxRuntimeState->rxChannelCount; channel++) {
-        float sample = rcRaw[channel]; // sample has latest RC value, rcData has last 'accepted valid' value
+        float sample = rxRuntimeState->rcRaw[channel]; // sample has latest RC value, rcData has last 'accepted valid' value
         const bool thisChannelValid = rxRuntimeState->rxFlightChannelsValid && isPulseValid(sample);
         // if the whole packet is bad, or BOXFAILSAFE switch is actioned, consider all channels bad
         if (thisChannelValid) {
