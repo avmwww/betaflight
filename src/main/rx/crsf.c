@@ -75,10 +75,10 @@ typedef struct crsfRuntimeState_s {
     uint8_t         crsfFrameErrorCnt;
 #endif
     float           channelScale;
+    timeUs_t        lastLinkStatisticsFrameUs;
 } crsfRuntimeState_t;
 
 STATIC_UNIT_TESTED crsfRuntimeState_t crsfRuntimeStates[RX_SERIAL_COUNT];
-
 
 static serialPort_t *serialPort;
 static uint8_t telemetryBuf[CRSF_FRAME_SIZE_MAX];
@@ -231,12 +231,12 @@ typedef struct crsfPayloadLinkstatisticsTx_s {
 } crsfLinkStatisticsTx_t;
 #endif
 
-static timeUs_t lastLinkStatisticsFrameUs;
-
-static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, timeUs_t currentTimeUs, int id)
+static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, timeUs_t currentTimeUs,
+        crsfRuntimeState_t *crsfRuntimeState)
 {
+    int id = crsfRuntimeState->id;
     const crsfLinkStatistics_t stats = *statsPtr;
-    lastLinkStatisticsFrameUs = currentTimeUs;
+    crsfRuntimeState->lastLinkStatisticsFrameUs = currentTimeUs;
     int16_t rssiDbm = -1 * (stats.active_antenna ? stats.uplink_RSSI_2 : stats.uplink_RSSI_1);
     if (rssiSource == RSSI_SOURCE_RX_PROTOCOL_CRSF) {
         const uint16_t rssiPercentScaled = scaleRange(rssiDbm, CRSF_RSSI_MIN, CRSF_RSSI_MAX, 0, RSSI_MAX_VALUE);
@@ -278,13 +278,15 @@ static void handleCrsfLinkStatisticsFrame(const crsfLinkStatistics_t* statsPtr, 
 }
 
 #if defined(USE_CRSF_V3)
-static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsPtr, timeUs_t currentTimeUs, int id)
+static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsPtr, timeUs_t currentTimeUs,
+        crsfRuntimeState_t *crsfRuntimeState)
 {
+    int id = crsfRuntimeState->id;
     const crsfLinkStatisticsTx_t stats = *statsPtr;
-    lastLinkStatisticsFrameUs = currentTimeUs;
+    crsfRuntimeState->lastLinkStatisticsFrameUs = currentTimeUs;
     if (rssiSource == RSSI_SOURCE_RX_PROTOCOL_CRSF) {
         const uint16_t rssiPercentScaled = scaleRange(stats.uplink_RSSI_percentage, 0, 100, 0, RSSI_MAX_VALUE);
-        setRssi(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF);
+        set_rssi_val(rssiPercentScaled, RSSI_SOURCE_RX_PROTOCOL_CRSF, id);
     }
 #ifdef USE_RX_RSSI_DBM
     int16_t rssiDbm = -1 * stats.uplink_RSSI;
@@ -292,7 +294,7 @@ static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsP
 #endif
 
 #ifdef USE_RX_RSNR
-    setRsnr(stats.uplink_SNR);
+    set_rsnr(stats.uplink_SNR, id);
 #endif
 
 #ifdef USE_RX_LINK_QUALITY_INFO
@@ -310,22 +312,23 @@ static void handleCrsfLinkStatisticsTxFrame(const crsfLinkStatisticsTx_t* statsP
 #endif
 
 #if defined(USE_CRSF_LINK_STATISTICS)
-static void crsfCheckRssi(uint32_t currentTimeUs)
+static void crsfCheckRssi(uint32_t currentTimeUs, crsfRuntimeState_t *crsfRuntimeState)
 {
+    int id = crsfRuntimeState->id;
 
-    if (cmpTimeUs(currentTimeUs, lastLinkStatisticsFrameUs) > CRSF_LINK_STATUS_UPDATE_TIMEOUT_US) {
+    if (cmpTimeUs(currentTimeUs, crsfRuntimeState->lastLinkStatisticsFrameUs) > CRSF_LINK_STATUS_UPDATE_TIMEOUT_US) {
         if (rssiSource == RSSI_SOURCE_RX_PROTOCOL_CRSF) {
-            setRssiDirect(0, RSSI_SOURCE_RX_PROTOCOL_CRSF);
+            set_rssi_val_direct(0, RSSI_SOURCE_RX_PROTOCOL_CRSF, id);
 #ifdef USE_RX_RSSI_DBM
-            setRssiDbmDirect(CRSF_RSSI_MIN, RSSI_SOURCE_RX_PROTOCOL_CRSF);
+            set_rssi_dbm_val_direct(CRSF_RSSI_MIN, RSSI_SOURCE_RX_PROTOCOL_CRSF, id);
 #endif
 #ifdef USE_RX_RSNR
-            setRsnrDirect(CRSF_SNR_MIN);
+            set_rsnr_direct(CRSF_SNR_MIN, id);
 #endif
         }
 #ifdef USE_RX_LINK_QUALITY_INFO
         if (linkQualitySource == LQ_SOURCE_RX_PROTOCOL_CRSF) {
-            setLinkQualityDirect(0);
+            set_link_quality_direct(0, id);
         }
 #endif
     }
@@ -436,7 +439,7 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
                         (crsfRuntimeState->crsfFrame.frame.deviceAddress == CRSF_ADDRESS_FLIGHT_CONTROLLER) &&
                         (crsfRuntimeState->crsfFrame.frame.frameLength == CRSF_FRAME_ORIGIN_DEST_SIZE + CRSF_FRAME_LINK_STATISTICS_PAYLOAD_SIZE)) {
                         const crsfLinkStatistics_t* statsFrame = (const crsfLinkStatistics_t*)&crsfRuntimeState->crsfFrame.frame.payload;
-                        handleCrsfLinkStatisticsFrame(statsFrame, currentTimeUs, crsfRuntimeState->id);
+                        handleCrsfLinkStatisticsFrame(statsFrame, currentTimeUs, crsfRuntimeState);
                     }
                     break;
                 }
@@ -449,7 +452,7 @@ STATIC_UNIT_TESTED void crsfDataReceive(uint16_t c, void *data)
                         (crsfRuntimeState->crsfFrame.frame.deviceAddress == CRSF_ADDRESS_FLIGHT_CONTROLLER) &&
                         (crsfRuntimeState->crsfFrame.frame.frameLength == CRSF_FRAME_ORIGIN_DEST_SIZE + CRSF_FRAME_LINK_STATISTICS_TX_PAYLOAD_SIZE)) {
                         const crsfLinkStatisticsTx_t* statsFrame = (const crsfLinkStatisticsTx_t*)&crsfRuntimeState->crsfFrame.frame.payload;
-                        handleCrsfLinkStatisticsTxFrame(statsFrame, currentTimeUs, crsfRuntimeState->id);
+                        handleCrsfLinkStatisticsTxFrame(statsFrame, currentTimeUs, crsfRuntimeState);
                     }
                     break;
                 }
@@ -491,7 +494,7 @@ STATIC_UNIT_TESTED uint8_t crsfFrameStatus(rxRuntimeState_t *rxRuntimeState)
     crsfRuntimeState_t *crsfRuntimeState = (crsfRuntimeState_t *)rxRuntimeState->priv;
 
 #if defined(USE_CRSF_LINK_STATISTICS)
-    crsfCheckRssi(micros());
+    crsfCheckRssi(micros(), crsfRuntimeState);
 #endif
     if (crsfRuntimeState->crsfFrameDone) {
         crsfRuntimeState->crsfFrameDone = false;

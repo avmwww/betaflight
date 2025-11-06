@@ -1264,7 +1264,7 @@ static int osdGetLinkQualityID(uint8_t item)
 
 static void osdElementLinkQuality(osdElementParms_t *element)
 {
-    uint16_t osdLinkQuality = 0;
+    uint16_t osdLinkQuality;
     int id = osdGetLinkQualityID(element->item);
 
     if (id < 0)
@@ -1600,7 +1600,7 @@ static void osdElementRssiDbm(osdElementParms_t *element)
     const int8_t antenna = getActiveAntenna();
     static bool diversity = false;
     int id = osdGetRssiDbmID(element->item);
-    uint16_t osdRssiDbm;
+    int16_t osdRssiDbm;
 
     if (id < 0)
         return;

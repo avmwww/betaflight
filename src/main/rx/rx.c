@@ -96,7 +96,7 @@ static rxRuntimeState_t rxRuntimeStates[RX_SERIAL_COUNT];
 
 rxRuntimeState_t *getRxRuntimeState(int id)
 {
-    if (id > RX_SERIAL_COUNT - 1)
+    if (id > (RX_SERIAL_COUNT - 1) || id < 0)
         return NULL;
     return &rxRuntimeStates[id];
 }
@@ -244,6 +244,7 @@ static bool serialRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntime
 static void rxInitID(int id)
 {
     rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(id);
+    memset(rxRuntimeState, 0, sizeof(rxRuntimeState_t));
 
     if (featureIsEnabled(FEATURE_RX_PARALLEL_PWM)) {
         rxRuntimeState->rxProvider = RX_PROVIDER_PARALLEL_PWM;
