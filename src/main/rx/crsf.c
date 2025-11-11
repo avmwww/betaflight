@@ -643,6 +643,9 @@ bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, in
     rxRuntimeState->priv = &crsfRuntimeStates[id];
 
     crsfRuntimeState = (crsfRuntimeState_t *)rxRuntimeState->priv;
+    memset(crsfRuntimeState, 0, sizeof(crsfRuntimeState_t));
+
+    crsfRuntimeState->id = id;
 
     for (int ii = 0; ii < CRSF_MAX_CHANNEL; ++ii) {
         crsfRuntimeState->crsfChannelData[ii] = (16 * rxConfig->midrc) / 10 - 1408;
@@ -659,7 +662,6 @@ bool crsfRxInit(const rxConfig_t *rxConfig, rxRuntimeState_t *rxRuntimeState, in
     if (!portConfig) {
         return false;
     }
-    crsfRuntimeState->id = id;
 
     uint32_t crsfBaudrate = CRSF_BAUDRATE;
 
