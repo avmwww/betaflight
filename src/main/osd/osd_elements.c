@@ -227,7 +227,7 @@ static const char compassBar[] = {
 };
 
 static unsigned activeOsdElementCount = 0;
-static uint8_t activeOsdElementArray[OSD_ITEM_COUNT];
+static uint8_t activeOsdElementArray[OSD_ITEM_COUNT + 1];
 static bool backgroundLayerSupported = false;
 
 // Blink control
@@ -1827,7 +1827,6 @@ static void osdElementSys(osdElementParms_t *element)
 // to osdAddActiveElements()
 
 static const uint8_t osdElementDisplayOrder[] = {
-    OSD_U_ID,
     OSD_MAIN_BATT_VOLTAGE,
     OSD_RSSI_VALUE,
     OSD_RSSI_X_VALUE,
@@ -1941,7 +1940,6 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
     [OSD_RSSI_X_VALUE]            = osdElementRssi,
     [OSD_RSSI_X_VALUE + 1]        = osdElementRssi,
     [OSD_RSSI_X_VALUE + 2]        = osdElementRssi,
-    [OSD_U_ID]                    = osdElementU_ID,
     [OSD_MAIN_BATT_VOLTAGE]       = osdElementMainBatteryVoltage,
     [OSD_CROSSHAIRS]              = osdElementCrosshairs,  // only has background, but needs to be over other elements (like artificial horizon)
 #ifdef USE_ACC
@@ -2096,10 +2094,15 @@ const osdElementDrawFn osdElementBackgroundFunction[OSD_ITEM_COUNT] = {
     [OSD_PILOT_NAME]              = osdBackgroundPilotName,
 };
 
+static void osdAddActiveElementNoCheck(osd_items_e element)
+{
+    activeOsdElementArray[activeOsdElementCount++] = element;
+}
+
 static void osdAddActiveElement(osd_items_e element)
 {
-    if (VISIBLE(osdElementConfig()->item_pos[element]) || element == OSD_U_ID) {
-        activeOsdElementArray[activeOsdElementCount++] = element;
+    if (VISIBLE(osdElementConfig()->item_pos[element])) {
+        osdAddActiveElementNoCheck(element);
     }
 }
 
@@ -2110,6 +2113,7 @@ void osdAddActiveElements(void)
 {
     activeOsdElementCount = 0;
 
+    osdAddActiveElementNoCheck(OSD_U_ID);
 #ifdef USE_ACC
     if (sensors(SENSOR_ACC)) {
         osdAddActiveElement(OSD_ARTIFICIAL_HORIZON);
@@ -2159,9 +2163,15 @@ void osdAddActiveElements(void)
 static bool osdDrawSingleElement(displayPort_t *osdDisplayPort, uint8_t item)
 {
     // By default mark the element as rendered in case it's in the off blink state
-    activeElement.rendered = true;
+    osdElementDrawFn osdDrawFunc;
 
-    if (!osdElementDrawFunction[item]) {
+    activeElement.rendered = true;
+    if (item == OSD_U_ID)
+        osdDrawFunc = osdElementU_ID;
+    else
+        osdDrawFunc = osdElementDrawFunction[item];
+
+    if (!osdDrawFunc) {
         // Element has no drawing function
         return true;
     }
@@ -2191,7 +2201,7 @@ static bool osdDrawSingleElement(displayPort_t *osdDisplayPort, uint8_t item)
     if (IS_SYS_OSD_ELEMENT(item)) {
         displaySys(osdDisplayPort, elemPosX, elemPosY, (displayPortSystemElement_e)(item - OSD_SYS_GOGGLE_VOLTAGE + DISPLAYPORT_SYS_GOGGLE_VOLTAGE));
     } else {
-        osdElementDrawFunction[item](&activeElement);
+        osdDrawFunc(&activeElement);
         if (activeElement.drawElement) {
             displayPendingForeground = true;
         }

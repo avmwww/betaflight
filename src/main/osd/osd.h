@@ -195,9 +195,10 @@ typedef enum {
     OSD_RSSI_X_DBM_VALUE_LAST = OSD_RSSI_X_DBM_VALUE + RSSI_NUM - 1,
     OSD_LINK_QUALITY_X,
     OSD_LINK_QUALITY_X_LAST = OSD_LINK_QUALITY_X + RSSI_NUM - 1,
-    OSD_U_ID,
     OSD_ITEM_COUNT // MUST BE LAST
 } osd_items_e;
+
+#define OSD_U_ID        0xff
 
 // *** IMPORTANT ***
 // Whenever new elements are added to 'osd_items_e', make sure to increment
@@ -367,7 +368,7 @@ typedef struct osdConfig_s {
 PG_DECLARE(osdConfig_t, osdConfig);
 
 typedef struct osdElementConfig_s {
-    uint16_t item_pos[OSD_ITEM_COUNT];
+    uint16_t item_pos[OSD_ITEM_COUNT + 1];
 } osdElementConfig_t;
 
 PG_DECLARE(osdElementConfig_t, osdElementConfig);
