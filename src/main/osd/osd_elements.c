@@ -1577,6 +1577,16 @@ static void osdElementRssi(osdElementParms_t *element)
     tfp_sprintf(element->buff, "%c%2d", SYM_RSSI, osdRssi);
 }
 
+static void osdElementU_ID(osdElementParms_t *element)
+{
+    static char u_id_buffer[OSD_ELEMENT_BUFFER_LENGTH] = {'\0'};
+
+    if (u_id_buffer[0] == '\0')
+        tfp_sprintf(u_id_buffer, "ID: %08X%08X%08X", U_ID_0, U_ID_1, U_ID_2);
+
+    strcpy(element->buff, u_id_buffer);
+}
+
 #ifdef USE_RTC_TIME
 static void osdElementRtcTime(osdElementParms_t *element)
 {
@@ -1817,6 +1827,7 @@ static void osdElementSys(osdElementParms_t *element)
 // to osdAddActiveElements()
 
 static const uint8_t osdElementDisplayOrder[] = {
+    OSD_U_ID,
     OSD_MAIN_BATT_VOLTAGE,
     OSD_RSSI_VALUE,
     OSD_RSSI_X_VALUE,
@@ -1930,6 +1941,7 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
     [OSD_RSSI_X_VALUE]            = osdElementRssi,
     [OSD_RSSI_X_VALUE + 1]        = osdElementRssi,
     [OSD_RSSI_X_VALUE + 2]        = osdElementRssi,
+    [OSD_U_ID]                    = osdElementU_ID,
     [OSD_MAIN_BATT_VOLTAGE]       = osdElementMainBatteryVoltage,
     [OSD_CROSSHAIRS]              = osdElementCrosshairs,  // only has background, but needs to be over other elements (like artificial horizon)
 #ifdef USE_ACC
@@ -2086,7 +2098,7 @@ const osdElementDrawFn osdElementBackgroundFunction[OSD_ITEM_COUNT] = {
 
 static void osdAddActiveElement(osd_items_e element)
 {
-    if (VISIBLE(osdElementConfig()->item_pos[element])) {
+    if (VISIBLE(osdElementConfig()->item_pos[element]) || element == OSD_U_ID) {
         activeOsdElementArray[activeOsdElementCount++] = element;
     }
 }
@@ -2159,6 +2171,10 @@ static bool osdDrawSingleElement(displayPort_t *osdDisplayPort, uint8_t item)
 
     uint8_t elemPosX = OSD_X(osdElementConfig()->item_pos[item]);
     uint8_t elemPosY = OSD_Y(osdElementConfig()->item_pos[item]);
+    if (item == OSD_U_ID) {
+        elemPosX = 1;
+        elemPosY = 1;
+    }
 
     activeElement.item = item;
     activeElement.elemPosX = elemPosX;
