@@ -1560,7 +1560,7 @@ static SD_Error_t SD_IsCardProgramming(uint8_t *pStatus)
   */
 bool SD_Initialize_LL(DMA_Stream_TypeDef *dma)
 {
-    const dmaIdentifier_e dmaIdentifier = dmaGetIdentifier((dmaResource_t *)dmaStream);
+    const dmaIdentifier_e dmaIdentifier = dmaGetIdentifier((dmaResource_t *)dma);
     if (!(dma == DMA2_Stream3 || dma == DMA2_Stream6) || !dmaAllocate(dmaIdentifier, OWNER_SDCARD, 0)) {
         return false;
     }
