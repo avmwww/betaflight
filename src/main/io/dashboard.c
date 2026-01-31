@@ -255,6 +255,7 @@ static void handlePageChange(void)
 
 static void drawRxChannel(uint8_t channelIndex, uint8_t width)
 {
+    float *rcData = getRcData(0);
     LCDprint(rcChannelLetters[channelIndex]);
 
     const uint32_t percentage = (constrain(rcData[channelIndex], PWM_RANGE_MIN, PWM_RANGE_MAX) - PWM_RANGE_MIN) * 100 / PWM_RANGE;
@@ -264,12 +265,13 @@ static void drawRxChannel(uint8_t channelIndex, uint8_t width)
 #define RX_CHANNELS_PER_PAGE_COUNT 14
 static void showRxPage(void)
 {
-    for (int channelIndex = 0; channelIndex < rxRuntimeState.channelCount && channelIndex < RX_CHANNELS_PER_PAGE_COUNT; channelIndex += 2) {
+    rxRuntimeState_t *rxRuntimeState = getRxRuntimeState(0);
+    for (int channelIndex = 0; channelIndex < rxRuntimeState->channelCount && channelIndex < RX_CHANNELS_PER_PAGE_COUNT; channelIndex += 2) {
         i2c_OLED_set_line(dev, (channelIndex / 2) + PAGE_TITLE_LINE_COUNT);
 
         drawRxChannel(channelIndex, HALF_SCREEN_CHARACTER_COLUMN_COUNT);
 
-        if (channelIndex >= rxRuntimeState.channelCount) {
+        if (channelIndex >= rxRuntimeState->channelCount) {
             continue;
         }
 

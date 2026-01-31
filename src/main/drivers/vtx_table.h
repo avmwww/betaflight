@@ -27,7 +27,7 @@
 #include "drivers/vtx_common.h"
 
 #ifdef USE_VTX_TABLE
-#define VTX_TABLE_MAX_BANDS             8 // Maximum number of bands
+#define VTX_TABLE_MAX_BANDS             16 // Maximum number of bands
 #define VTX_TABLE_MAX_CHANNELS          8 // Maximum number of channels per band
 #define VTX_TABLE_MAX_POWER_LEVELS      8 // Maximum number of power levels
 #define VTX_TABLE_CHANNEL_NAME_LENGTH   1
@@ -43,8 +43,8 @@
 #endif
 
 
-#define VTX_TABLE_MIN_USER_FREQ         5000
-#define VTX_TABLE_MAX_USER_FREQ         5999
+#define VTX_TABLE_MIN_USER_FREQ         100
+#define VTX_TABLE_MAX_USER_FREQ         7999
 #define VTX_TABLE_DEFAULT_BAND          4
 #define VTX_TABLE_DEFAULT_CHANNEL       1
 #define VTX_TABLE_DEFAULT_FREQ          5740

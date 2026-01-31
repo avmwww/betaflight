@@ -496,6 +496,7 @@ static const struct {
 
 static void applyLedFixedLayers(void)
 {
+    float *rcData = getRcData(0);
     for (int ledIndex = 0; ledIndex < ledCounts.count; ledIndex++) {
         const ledConfig_t *ledConfig = &ledStripStatusModeConfig()->ledConfigs[ledIndex];
         hsvColor_t color = *getSC(LED_SCOLOR_BACKGROUND);
@@ -894,6 +895,7 @@ static void applyLedIndicatorLayer(bool updateNow, timeUs_t *timer)
 
 static void applyLedThrustRingLayer(bool updateNow, timeUs_t *timer)
 {
+    float *rcData = getRcData(0);
     static uint8_t rotationPhase;
     int ledRingIndex = 0;
 

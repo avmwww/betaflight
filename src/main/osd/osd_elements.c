@@ -2018,9 +2018,13 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
 #endif
 #ifdef USE_RX_LINK_QUALITY_INFO
     [OSD_LINK_QUALITY]            = osdElementLinkQuality,
+#if (RSSI_NUM > 1)
     [OSD_LINK_QUALITY_X]            = osdElementLinkQuality,
+#elif (RSSI_NUM > 2)
     [OSD_LINK_QUALITY_X + 1]        = osdElementLinkQuality,
+#elif (RSSI_NUM > 3)
     [OSD_LINK_QUALITY_X + 2]        = osdElementLinkQuality,
+#endif
 #endif
 #ifdef USE_RX_LINK_UPLINK_POWER
     [OSD_TX_UPLINK_POWER]         = osdElementTxUplinkPower,
@@ -2045,9 +2049,13 @@ const osdElementDrawFn osdElementDrawFunction[OSD_ITEM_COUNT] = {
 #endif
 #ifdef USE_RX_RSSI_DBM
     [OSD_RSSI_DBM_VALUE]          = osdElementRssiDbm,
+#if (RSSI_NUM > 1)
     [OSD_RSSI_X_DBM_VALUE]        = osdElementRssiDbm,
+#elif (RSSI_NUM > 2)
     [OSD_RSSI_X_DBM_VALUE + 1]    = osdElementRssiDbm,
+#elif (RSSI_NUM > 3)
     [OSD_RSSI_X_DBM_VALUE + 2]    = osdElementRssiDbm,
+#endif
 #endif
 #ifdef USE_RX_RSNR
     [OSD_RSNR_VALUE]              = osdElementRsnr,
